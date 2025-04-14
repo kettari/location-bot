@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"location-bot/internal/console"
+	"github.com/kettari/location-bot/internal/console"
 	"log/slog"
 	"os"
 )
