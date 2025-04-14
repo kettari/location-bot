@@ -16,9 +16,9 @@ GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 
 PROJECT_PATH=github.com/kettari/location-bot
-PROJECT_CMD ?= bot
+PROJECT_CMD ?= console
 BINARY_PATH=bin/
-BINARY_NAME=walle_$(PROJECT_CMD)
+BINARY_NAME=location_$(PROJECT_CMD)
 include deploy_$(PROJECT_CMD).env
 
 # Assign build version

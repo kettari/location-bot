@@ -45,7 +45,7 @@ func runCommand(commands *Commands, arg string) {
 	}
 
 	if !found {
-		fmt.Println("Usage: location_cmd <command>")
+		fmt.Println("Usage: location_console <command>")
 		for _, cmd := range *commands {
 			fmt.Printf("\t%s - %s\n", cmd.Name(), cmd.Description())
 		}
