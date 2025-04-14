@@ -1,0 +1,57 @@
+FROM golang:1.23 AS builder
+
+ARG PROJECT_CMD=console
+
+RUN apt-get update && apt-get install -y libc6 curl wget
+
+COPY build/keys/id_rsa /root/.ssh/id_rsa
+RUN chmod 700 /root/.ssh/id_rsa
+RUN echo "[url \"git@github.com:\"]\n\tinsteadOf = https://github.com/" >> /root/.gitconfig && \
+    echo "StrictHostKeyChecking no " > /root/.ssh/config
+RUN go env -w GOPRIVATE=github.com/kettari/*
+
+COPY . /src/github.com/kettari/location-bot
+
+ENV CGO_ENABLED=0
+RUN cd /src/github.com/kettari/location-bot && \
+    /usr/local/go/bin/go build -o bin/walle -v github.com/kettari/location-bot/cmd/${PROJECT_CMD}
+
+FROM debian:10
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y locales cron \
+    # Remove package lists for smaller image sizes
+    && rm -rf /var/lib/apt/lists/* \
+    && which cron \
+    && rm -rf /etc/cron.*/*
+
+# Set the locale
+RUN locale-gen ru_RU.UTF-8
+ENV LANG=ru_RU.UTF-8
+ENV LANGUAGE=ru_RU:ru
+ENV LC_ALL=ru_RU.UTF-8
+
+RUN rm /etc/localtime && ln -s /usr/share/zoneinfo/Europe/Moscow /etc/localtime
+
+COPY --from=builder /src/github.com/kettari/location-bot/bin/walle /var/www/walle
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /src/github.com/kettari/location-bot/scripts/cron/crontab /walle-cron
+
+# Give execution rights on the cron job
+RUN chmod 0777 /walle-cron
+# Apply cron job
+RUN crontab /walle-cron
+# Create the log file to be able to run tail
+RUN touch /var/log/cron.log
+RUN touch /var/log/walle.log
+
+# Export all environment
+#RUN env >> /etc/environment
+#RUN chmod 0777 /etc/environment
+
+# -f | Stay in foreground mode, don't daemonize.
+# -L loglevel | Tell  cron  what to log about jobs (errors are logged regardless of this value) as the sum of the following values:
+CMD env >> /etc/environment && cron -f -L 2
+
+# WORKDIR /var/www
+# CMD ["/var/www/walle"]
