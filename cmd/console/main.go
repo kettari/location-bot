@@ -16,6 +16,8 @@ func main() {
 	commands := initCommands()
 	if len(os.Args) > 1 {
 		runCommand(commands, os.Args[1])
+	} else {
+		printHelp(commands)
 	}
 
 	slog.Info("Command finished")
@@ -24,6 +26,7 @@ func main() {
 func initCommands() *Commands {
 	return &Commands{
 		console.NewHelpCommand(),
+		console.NewScheduleCommand(),
 	}
 }
 
@@ -43,11 +46,11 @@ func runCommand(commands *Commands, arg string) {
 	if !found {
 		fmt.Printf("Command '%s' not found\n", arg)
 	}
+}
 
-	if !found {
-		fmt.Println("Usage: location_console <command>")
-		for _, cmd := range *commands {
-			fmt.Printf("\t%s - %s\n", cmd.Name(), cmd.Description())
-		}
+func printHelp(commands *Commands) {
+	fmt.Println("Usage: location_console <command>")
+	for _, cmd := range *commands {
+		fmt.Printf("\t%s - %s\n", cmd.Name(), cmd.Description())
 	}
 }
