@@ -68,6 +68,7 @@ func (cmd *ScheduleCommand) Run() error {
 		return err
 	}
 	slog.Info("Received parsed events", "size", len(*parsedEvents))
+	slog.Debug("Parsed events", "events", *parsedEvents)
 
 	return nil
 }
