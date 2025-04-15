@@ -8,23 +8,29 @@ import (
 )
 
 type Events struct {
+	URL  string
+	Csrf *Csrf
 	Html string
 }
 
-func (e *Events) LoadEvents(csrf *Csrf, url string) error {
-	req, err := http.NewRequest("POST", url, nil)
+func NewEvents(url string, csrf *Csrf) *Events {
+	return &Events{URL: url, Csrf: csrf}
+}
+
+func (e *Events) LoadEvents() error {
+	req, err := http.NewRequest("POST", e.URL, nil)
 	if err != nil {
 		return err
 	}
 
 	cookie := http.Cookie{
 		Name:     "_csrf",
-		Value:    csrf.Cookie,
+		Value:    e.Csrf.Cookie,
 		Path:     "/",
 		HttpOnly: true,
 	}
 	req.Header.Set("Cookie", cookie.String())
-	req.Header.Set("x-csrf-token", csrf.Token)
+	req.Header.Set("x-csrf-token", e.Csrf.Token)
 	req.Header.Set("x-requested-with", "XMLHttpRequest")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -34,12 +40,12 @@ func (e *Events) LoadEvents(csrf *Csrf, url string) error {
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
 		if err != nil {
-			slog.Error("Failed to close response body", "url", url, "err", err)
+			slog.Error("Failed to close response body", "url", e.URL, "err", err)
 		}
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Error("Failed to load events HTML page", "url", url, "http_code", resp.StatusCode, "status", resp.Status)
+		slog.Error("Failed to load events HTML page", "url", e.URL, "http_code", resp.StatusCode, "status", resp.Status)
 		return errors.New("failed to load events HTML page")
 	}
 

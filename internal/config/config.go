@@ -67,7 +67,7 @@ func GetConfig() *Config {
 		os.Exit(1)
 	}
 
-	slog.Debug("Starting parameters",
+	slog.Debug("Configuration parameters",
 		"BOT_DEBUG", config.Debug,
 		"BOT_TELEGRAM_TOKEN", config.BotToken,
 		"BOT_TELEGRAM_NAME", config.BotUsername,

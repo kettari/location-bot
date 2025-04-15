@@ -7,12 +7,17 @@ import (
 )
 
 type Page struct {
+	URL     string
 	Html    string
 	Cookies []*http.Cookie
 }
 
-func (p *Page) LoadHtml(url string) error {
-	req, err := http.NewRequest("GET", url, nil)
+func NewPage(url string) *Page {
+	return &Page{URL: url}
+}
+
+func (p *Page) LoadHtml() error {
+	req, err := http.NewRequest("GET", p.URL, nil)
 	if err != nil {
 		return err
 	}
@@ -24,7 +29,7 @@ func (p *Page) LoadHtml(url string) error {
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
 		if err != nil {
-			slog.Error("Failed to close response body", "url", url, "err", err)
+			slog.Error("Failed to close response body", "url", p.URL, "err", err)
 		}
 	}(resp.Body)
 

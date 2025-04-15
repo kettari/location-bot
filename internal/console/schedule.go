@@ -1,6 +1,8 @@
 package console
 
 import (
+	"github.com/kettari/location-bot/internal/chatgpt"
+	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/scraper"
 	"log/slog"
 )
@@ -29,8 +31,8 @@ func (cmd *ScheduleCommand) Description() string {
 func (cmd *ScheduleCommand) Run() error {
 	slog.Info("Requesting page", "url", rootURL)
 
-	page := &scraper.Page{}
-	if err := page.LoadHtml(rootURL); err != nil {
+	page := scraper.NewPage(rootURL)
+	if err := page.LoadHtml(); err != nil {
 		return err
 	}
 	slog.Info("Initial page loaded", "size", len(page.Html), "cookies_count", len(page.Cookies))
@@ -48,11 +50,20 @@ func (cmd *ScheduleCommand) Run() error {
 	slog.Info("Found CSRF cookie", "cookie", csrf.Cookie)
 
 	slog.Info("Requesting events", "url", eventsURL)
-	events := &scraper.Events{}
-	if err = events.LoadEvents(csrf, eventsURL); err != nil {
+	events := scraper.NewEvents(eventsURL, csrf)
+	if err = events.LoadEvents(); err != nil {
 		return err
 	}
 	slog.Info("Events page loaded", "size", len(events.Html))
+
+	conf := config.GetConfig()
+	chatGPT := chatgpt.NewChatGPT(conf.OpenAIApiKey, conf.OpenAILanguageModel)
+	var parsedEvents *string
+	if parsedEvents, err = chatGPT.NewParseCompletion(events.Html); err != nil {
+		return err
+	}
+	slog.Info("Received parsed events", "size", len(*parsedEvents))
+	slog.Debug("Parsed events", "events", *parsedEvents)
 
 	return nil
 }
