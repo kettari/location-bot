@@ -66,7 +66,7 @@ func (c *ChatGPT) NewParseCompletion(events string) (*string, error) {
 
 	// Prepare prompt
 	prompt := []openai.ChatCompletionMessageParamUnion{
-		openai.UserMessage(systemMessage),
+		openai.UserMessage(question),
 	}
 	params := openai.ChatCompletionNewParams{
 		Messages: prompt,
