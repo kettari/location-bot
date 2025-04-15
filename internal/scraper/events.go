@@ -2,15 +2,18 @@ package scraper
 
 import (
 	"errors"
+	"github.com/kettari/location-bot/internal/entity"
 	"io"
 	"log/slog"
 	"net/http"
+	"regexp"
 )
 
 type Events struct {
-	URL  string
-	Csrf *Csrf
-	Html string
+	URL      string
+	Csrf     *Csrf
+	Html     string
+	Schedule *entity.Schedule
 }
 
 func NewEvents(url string, csrf *Csrf) *Events {
@@ -57,4 +60,18 @@ func (e *Events) LoadEvents() error {
 	e.Html = string(data)
 
 	return nil
+}
+
+func (e *Events) ExtractID() error {
+	e.Schedule = entity.NewSchedule()
+	r := regexp.MustCompile(`<div class="event-single\s+[a-z\s]+(can-join|cannot-join)\s+"\s+id="(game\d+)"[^<]+<h4 class="game-title">\s.+\s<a href="([^"]+)" class='js-game-title'>\s([^<]+)\s\(\d{2}:\d{2}\s.\s\d{2}:\d{2}\s\)`)
+	matches := r.FindAllStringSubmatch(e.Html, -1)
+	if len(matches) > 0 {
+		for _, match := range matches {
+			game := entity.NewGame(match[2], match[1], match[3], match[4])
+			e.Schedule.Games = append(e.Schedule.Games, game)
+		}
+		return nil
+	}
+	return errors.New("csrf token 'csrf-token' not found in the HTML page")
 }

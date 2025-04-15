@@ -1,6 +1,8 @@
 package console
 
 import (
+	"github.com/kettari/location-bot/internal/chatgpt"
+	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/scraper"
 	"log/slog"
 )
@@ -54,5 +56,29 @@ func (cmd *ScheduleCommand) Run() error {
 	}
 	slog.Info("Events page loaded", "size", len(events.Html))
 
+	/*slog.Info("Extracting game IDs")
+	if err = events.ExtractID(); err != nil {
+		return err
+	}*/
+	conf := config.GetConfig()
+	chatGPT := chatgpt.NewChatGPT(conf.OpenAIApiKey, conf.OpenAILanguageModel)
+	var parsedEvents *string
+
+	if parsedEvents, err = chatGPT.NewParseCompletion(firstN(events.Html, 50000)); err != nil {
+		return err
+	}
+	slog.Info("Received parsed events", "size", len(*parsedEvents))
+
 	return nil
+}
+
+func firstN(s string, n int) string {
+	i := 0
+	for j := range s {
+		if i == n {
+			return s[:j]
+		}
+		i++
+	}
+	return s
 }
