@@ -28,6 +28,7 @@ func initCommands() *Commands {
 		console.NewHelpCommand(),
 		console.NewScheduleFetchCommand(),
 		console.NewScheduleReportFullCommand(),
+		console.NewScheduleReportDeltaCommand(),
 	}
 }
 

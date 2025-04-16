@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"fmt"
 	"gorm.io/gorm"
 	"time"
 )
@@ -39,4 +40,36 @@ func (g *Game) Equal(game *Game) bool {
 		g.Notes == game.Notes &&
 		g.SeatsTotal == game.SeatsTotal &&
 		g.SeatsFree == game.SeatsFree
+}
+
+func (g *Game) Format() (string, error) {
+	dow := map[string]string{
+		"Mon": "ПОНЕДЕЛЬНИК",
+		"Tue": "ВТОРНИК",
+		"Wed": "СРЕДА",
+		"Thu": "ЧЕТВЕРГ",
+		"Fri": "ПЯТНИЦА",
+		"Sat": "СУББОТА",
+		"Sun": "ВОСКРЕСЕНЬЕ",
+	}
+
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		return "", err
+	}
+
+	result := fmt.Sprintf("<b>%s</b> (%s, %s)",
+		dow[g.Date.In(moscow).Format("Mon")],
+		g.Date.In(moscow).Format("02.01"),
+		g.Date.In(moscow).Format("15:04"))
+
+	result += fmt.Sprintf("\n%d/%d <a href=\"%s\">%s</a> [%s; %s]",
+		g.SeatsFree,
+		g.SeatsTotal,
+		g.URL,
+		g.Title,
+		g.System,
+		g.Setting)
+
+	return result, nil
 }
