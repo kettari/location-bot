@@ -42,7 +42,7 @@ func (s Schedule) Format() ([]string, error) {
 			currentDate = gameDate
 			slice += "\n\n" + gameDate
 		}
-		record := fmt.Sprintf("🔹 %d/%d <a href=\"%s\">%s</a> [%s; %s]",
+		record := fmt.Sprintf("🔸 %d/%d <a href=\"%s\">%s</a> [%s; %s]",
 			game.SeatsFree,
 			game.SeatsTotal,
 			game.URL,

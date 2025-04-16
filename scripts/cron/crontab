@@ -1,6 +1,6 @@
-*/5 9-22 * * * /var/www/location_console schedule:fetch >> /var/log/cron.log 2>&1
-0 10 * * * /var/www/location_console schedule:report:full >> /var/log/cron.log 2>&1
-*/2 11-22 * * * /var/www/location_console schedule:report:delta >> /var/log/cron.log 2>&1
+*/5 8-22 * * * /var/www/location_console schedule:fetch >> /var/log/cron.log 2>&1
+0 9 * * * /var/www/location_console schedule:report:full >> /var/log/cron.log 2>&1
+*/2 10-22 * * * /var/www/location_console schedule:report:delta >> /var/log/cron.log 2>&1
 
 # * * * * * /var/www/walle purge >> /var/log/walle.log 2>&1
 # * * * * * echo "Hello world" >> /var/log/cron.log 2>&1
