@@ -81,6 +81,7 @@ func GetConfig() *Config {
 		"BOT_TELEGRAM_NAME", config.BotUsername,
 		"BOT_OPENAI_API_KEY", config.OpenAIApiKey,
 		"BOT_DB_STRING", config.DbConnectionString,
+		"BOT_OPENAI_LANGUAGE_MODEL", config.OpenAILanguageModel,
 		"BOT_NOTIFICATION_CHAT_ID", config.NotificationChatID)
 
 	return config
