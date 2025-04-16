@@ -111,6 +111,7 @@ func (c *ChatGPT) NewParseCompletion(events string) (*string, error) {
 	if err != nil {
 		var e *openai.Error
 		if errors.As(err, &e) {
+			slog.Error(e.Error())
 			switch e.StatusCode {
 			case http.StatusTooManyRequests:
 				return nil, errors.New("OpenAI API error: 429 Too many requests")
