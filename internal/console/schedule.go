@@ -1,9 +1,12 @@
 package console
 
 import (
+	"encoding/json"
 	"github.com/kettari/location-bot/internal/chatgpt"
 	"github.com/kettari/location-bot/internal/config"
+	"github.com/kettari/location-bot/internal/entity"
 	"github.com/kettari/location-bot/internal/scraper"
+	"github.com/kettari/location-bot/internal/storage"
 	"log/slog"
 )
 
@@ -30,6 +33,7 @@ func (cmd *ScheduleCommand) Description() string {
 
 func (cmd *ScheduleCommand) Run() error {
 	slog.Info("Requesting page", "url", rootURL)
+	conf := config.GetConfig()
 
 	page := scraper.NewPage(rootURL)
 	if err := page.LoadHtml(); err != nil {
@@ -64,7 +68,6 @@ func (cmd *ScheduleCommand) Run() error {
 	slog.Info("Events split to chunks", "chunks_count", len(chunks))
 	var parsedJson []string
 	if len(chunks) > 0 {
-		conf := config.GetConfig()
 		for _, chunk := range chunks {
 
 			slog.Info("Processing events chunk", "chunk_size", len(chunk))
@@ -87,16 +90,32 @@ func (cmd *ScheduleCommand) Run() error {
 	}
 	slog.Info("Finished parsing events HTML to JSON", "json_parts_count", len(parsedJson))
 
-	return nil
-}
+	// Debug-time crutch
+	/*parsedJson := []string{
+		"{\n\t\"games\": [\n\t\t{\n\t\t\t\"id\": \"game123\",\n\t\t\t\"joinable\": true,\n\t\t\t\"url\": \"https://rolecon.ru/path\",\n\t\t\t\"title\": \"Название игры 1\",\n\t\t\t\"date\": \"2025-04-20T11:00:00+03:00\",\n\t\t\t\"setting\": \"Eberron\",\n\t\t\t\"system\": \"D&D 2024\",\n\t\t\t\"genre\": \"Экшн, расследование.\",\n\t\t\t\"master_name\": \"kauzt\",\n\t\t\t\"master_link\": \"https://rolecon.ru/user/24001\",\n\t\t\t\"description\": \"Когда заточённые в подземелье хтонические существа из другой реальности решают объединиться, жители поверхности сначала теряются, а потом — находят самых неожиданных союзников.\",\n\t\t\t\"notes\": \"Ваншот из серии ваншотов\",\n\t\t\t\"seats_total\": 6,\n\t\t\t\"seats_free\": 0\n\t\t},\n\t\t{\n\t\t\t\"id\": \"game456\",\n\t\t\t\"joinable\": false,\n\t\t\t\"url\": \"https://rolecon.ru/path\",\n\t\t\t\"title\": \"Название игры 2\",\n\t\t\t\"date\": \"2025-04-20T11:00:00+03:00\",\n\t\t\t\"setting\": \"Авторский сеттинг\",\n\t\t\t\"system\": \"D&D 2024\",\n\t\t\t\"genre\": \"триллер на выживание\",\n\t\t\t\"master_name\": \"Tindomerel\",\n\t\t\t\"master_link\": \"https://rolecon.ru/user/3647\",\n\t\t\t\"description\": \"Партия набрана\",\n\t\t\t\"notes\": \"4+мастер\",\n\t\t\t\"seats_total\": 0,\n\t\t\t\"seats_free\": 0\n\t\t}\n\t]\n}",
+	}*/
 
-func firstN(s string, n int) string {
-	i := 0
-	for j := range s {
-		if i == n {
-			return s[:j]
+	slog.Info("Unmarshalling JSON to struct")
+	schedule := entity.NewSchedule()
+	for _, jsonChunk := range parsedJson {
+		if err := json.Unmarshal([]byte(jsonChunk), schedule); err != nil {
+			return err
 		}
-		i++
 	}
-	return s
+	slog.Info("Unmarshalled JSON to schedule struct", "schedule_length", len(schedule.Games))
+
+	// Store events
+	manager := storage.NewManager(conf.DbConnectionString)
+	if err := manager.Connect(); err != nil {
+		return err
+	}
+	for _, game := range schedule.Games {
+		slog.Info("Updating the game", "game_external_id", game.ExternalID)
+		result := manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&game)
+		if result.Error != nil {
+			return result.Error
+		}
+	}
+
+	return nil
 }

@@ -23,25 +23,52 @@ joinable - булевый признак, можно ли присоединит
 url - ссылка на сайт https://rolecon.ru и путь к ресурсу игры
 title - название игры
 date - дата и время игры в формате ISO 8601 с таймзоной Москвы
+setting - сеттинг игры
+system - система игры
+genre - жанр игры
+master_name - ведущий игры
+master_link - ссылка на страницу мастера игры
+description - описание игры из элемента <div class="event-single-about-block">
+notes - заметки мастера об игре из элемента <div class="event-single-about-inline">
+seats_total - всего мест на игру. Если joinable=false то всего мест на игру равно 0
+seats_free - свободных мест на игру. Если joinable=false то свободных мест равно 0
 
 Верни результат в виде чистого валидного JSON, без своих комментариев и без форматирования Markdown. Пример:
 
 {
-	"data": [
+	"games": [
 		{
-			"id": 123,
-			"joinable": false,
-			"url": "https://rolecon.ru/path",
-			"title": "Название игры 1",
-			"date": "Дата и время игры 1"
-		},
-		{
-			"id": 456,
+			"id": "game123",
 			"joinable": true,
 			"url": "https://rolecon.ru/path",
-			"title": "Название игры 2",
-			"date": "Дата и время игры 2"
+			"title": "Название игры 1",
+			"date": "2025-04-20T11:00:00+03:00",
+			"setting": "Eberron",
+			"system": "D&D 2024",
+			"genre": "Экшн, расследование.",
+			"master_name": "kauzt",
+			"master_link": "https://rolecon.ru/user/24001",
+			"description": "Когда заточённые в подземелье хтонические существа из другой реальности решают объединиться, жители поверхности сначала теряются, а потом — находят самых неожиданных союзников.",
+			"notes": "Ваншот из серии ваншотов",
+			"seats_total": 6,
+			"seats_free": 0
 		},
+		{
+			"id": "game456",
+			"joinable": false,
+			"url": "https://rolecon.ru/path",
+			"title": "Название игры 2",
+			"date": "2025-04-20T11:00:00+03:00",
+			"setting": "Авторский сеттинг",
+			"system": "D&D 2024",
+			"genre": "триллер на выживание",
+			"master_name": "Tindomerel",
+			"master_link": "https://rolecon.ru/user/3647",
+			"description": "Партия набрана",
+			"notes": "4+мастер",
+			"seats_total": 0,
+			"seats_free": 0
+		}
 	]
 }
 
