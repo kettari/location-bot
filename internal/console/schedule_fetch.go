@@ -3,12 +3,9 @@ package console
 import (
 	"encoding/json"
 	"github.com/kettari/location-bot/internal/chatgpt"
-	"github.com/kettari/location-bot/internal/scraper"
-
-	//"github.com/kettari/location-bot/internal/chatgpt"
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/entity"
-	//"github.com/kettari/location-bot/internal/scraper"
+	"github.com/kettari/location-bot/internal/scraper"
 	"github.com/kettari/location-bot/internal/storage"
 	"log/slog"
 )
@@ -18,23 +15,23 @@ const (
 	eventsURL = "https://rolecon.ru/gamesearch"
 )
 
-type ScheduleCommand struct {
+type ScheduleFetchCommand struct {
 }
 
-func NewScheduleCommand() *ScheduleCommand {
-	cmd := ScheduleCommand{}
+func NewScheduleFetchCommand() *ScheduleFetchCommand {
+	cmd := ScheduleFetchCommand{}
 	return &cmd
 }
 
-func (cmd *ScheduleCommand) Name() string {
+func (cmd *ScheduleFetchCommand) Name() string {
 	return "schedule:fetch"
 }
 
-func (cmd *ScheduleCommand) Description() string {
-	return "Dummy command for help"
+func (cmd *ScheduleFetchCommand) Description() string {
+	return "fetches events from the Rolecon server and parses them to the database"
 }
 
-func (cmd *ScheduleCommand) Run() error {
+func (cmd *ScheduleFetchCommand) Run() error {
 	slog.Info("Requesting page", "url", rootURL)
 	conf := config.GetConfig()
 
@@ -117,6 +114,7 @@ func (cmd *ScheduleCommand) Run() error {
 
 	for _, game := range schedule.Games {
 		slog.Info("Saving the game", "game_external_id", game.ExternalID)
+		slog.Debug("Game JSON internals", "game_json", game)
 		storedGame := game
 		result := manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
 		if result.Error != nil {

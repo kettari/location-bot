@@ -39,5 +39,4 @@ func (g *Game) Equal(game *Game) bool {
 		g.Notes == game.Notes &&
 		g.SeatsTotal == game.SeatsTotal &&
 		g.SeatsFree == game.SeatsFree
-
 }

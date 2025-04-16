@@ -26,7 +26,8 @@ func main() {
 func initCommands() *Commands {
 	return &Commands{
 		console.NewHelpCommand(),
-		console.NewScheduleCommand(),
+		console.NewScheduleFetchCommand(),
+		console.NewScheduleReportFullCommand(),
 	}
 }
 
