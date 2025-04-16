@@ -8,7 +8,7 @@ import (
 type Game struct {
 	gorm.Model
 	ExternalID       string    `json:"id" gorm:"unique;not null"`
-	Joinable         bool      `json:"joinable;not null"`
+	Joinable         bool      `json:"joinable" gorm:"default:false;not null"`
 	URL              string    `json:"url" gorm:"size:1024"`
 	Title            string    `json:"title" gorm:"size:1024"`
 	Date             time.Time `json:"date"`
