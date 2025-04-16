@@ -95,20 +95,23 @@ func (cmd *ScheduleCommand) Run() error {
 		"{\n\t\"games\": [\n\t\t{\n\t\t\t\"id\": \"game123\",\n\t\t\t\"joinable\": true,\n\t\t\t\"url\": \"https://rolecon.ru/path\",\n\t\t\t\"title\": \"Название игры 1\",\n\t\t\t\"date\": \"2025-04-20T11:00:00+03:00\",\n\t\t\t\"setting\": \"Eberron\",\n\t\t\t\"system\": \"D&D 2024\",\n\t\t\t\"genre\": \"Экшн, расследование.\",\n\t\t\t\"master_name\": \"kauzt\",\n\t\t\t\"master_link\": \"https://rolecon.ru/user/24001\",\n\t\t\t\"description\": \"Когда заточённые в подземелье хтонические существа из другой реальности решают объединиться, жители поверхности сначала теряются, а потом — находят самых неожиданных союзников.\",\n\t\t\t\"notes\": \"Ваншот из серии ваншотов\",\n\t\t\t\"seats_total\": 6,\n\t\t\t\"seats_free\": 0\n\t\t},\n\t\t{\n\t\t\t\"id\": \"game456\",\n\t\t\t\"joinable\": false,\n\t\t\t\"url\": \"https://rolecon.ru/path\",\n\t\t\t\"title\": \"Название игры 2\",\n\t\t\t\"date\": \"2025-04-20T11:00:00+03:00\",\n\t\t\t\"setting\": \"Авторский сеттинг\",\n\t\t\t\"system\": \"D&D 2024\",\n\t\t\t\"genre\": \"триллер на выживание\",\n\t\t\t\"master_name\": \"Tindomerel\",\n\t\t\t\"master_link\": \"https://rolecon.ru/user/3647\",\n\t\t\t\"description\": \"Партия набрана\",\n\t\t\t\"notes\": \"4+мастер\",\n\t\t\t\"seats_total\": 0,\n\t\t\t\"seats_free\": 0\n\t\t}\n\t]\n}",
 	}*/
 
-	slog.Info("Unmarshalling JSON to struct")
-	schedule := entity.NewSchedule()
-	for _, jsonChunk := range parsedJson {
-		if err := json.Unmarshal([]byte(jsonChunk), schedule); err != nil {
-			return err
-		}
-	}
-	slog.Info("Unmarshalled JSON to schedule struct", "schedule_length", len(schedule.Games))
-
 	// Store events
 	manager := storage.NewManager(conf.DbConnectionString)
 	if err := manager.Connect(); err != nil {
 		return err
 	}
+
+	slog.Info("Unmarshalling JSON(s) to the struct")
+	schedule := entity.NewSchedule()
+	for _, jsonChunk := range parsedJson {
+		bufSchedule := entity.NewSchedule()
+		if err = json.Unmarshal([]byte(jsonChunk), bufSchedule); err != nil {
+			return err
+		}
+		schedule.Games = append(schedule.Games, bufSchedule.Games...)
+	}
+	slog.Info("Unmarshalled JSON(s) to schedule struct", "schedule_length", len(schedule.Games))
+
 	for _, game := range schedule.Games {
 		slog.Info("Updating the game", "game_external_id", game.ExternalID)
 		result := manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&game)
@@ -116,6 +119,8 @@ func (cmd *ScheduleCommand) Run() error {
 			return result.Error
 		}
 	}
+
+	slog.Info("Finished updating the schedule")
 
 	return nil
 }

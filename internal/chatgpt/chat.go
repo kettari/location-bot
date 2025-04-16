@@ -30,7 +30,7 @@ master_name - ведущий игры
 master_link - ссылка на страницу мастера игры
 description - описание игры из элемента <div class="event-single-about-block">
 notes - заметки мастера об игре из элемента <div class="event-single-about-inline">
-seats_total - всего мест на игру. Если joinable=false то всего мест на игру равно 0
+seats_total - всего мест на игру
 seats_free - свободных мест на игру. Если joinable=false то свободных мест равно 0
 
 Верни результат в виде чистого валидного JSON, без своих комментариев и без форматирования Markdown. Пример:
