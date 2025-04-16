@@ -13,6 +13,7 @@ type Config struct {
 	OpenAIApiKey        string
 	OpenAILanguageModel string
 	DbConnectionString  string
+	NotificationChatID  string
 }
 
 var config *Config
@@ -67,12 +68,20 @@ func GetConfig() *Config {
 		os.Exit(1)
 	}
 
+	// Bot chats to notify
+	config.NotificationChatID = os.Getenv("BOT_NOTIFICATION_CHAT_ID")
+	if len(config.NotificationChatID) == 0 {
+		slog.Error("Bot notification chat IDs not found in the environment (BOT_NOTIFICATION_CHAT_ID)")
+		os.Exit(1)
+	}
+
 	slog.Debug("Configuration parameters",
 		"BOT_DEBUG", config.Debug,
 		"BOT_TELEGRAM_TOKEN", config.BotToken,
 		"BOT_TELEGRAM_NAME", config.BotUsername,
 		"BOT_OPENAI_API_KEY", config.OpenAIApiKey,
-		"BOT_DB_STRING", config.DbConnectionString)
+		"BOT_DB_STRING", config.DbConnectionString,
+		"BOT_NOTIFICATION_CHAT_ID", config.NotificationChatID)
 
 	return config
 }
