@@ -3,9 +3,12 @@ package console
 import (
 	"encoding/json"
 	"github.com/kettari/location-bot/internal/chatgpt"
+	"github.com/kettari/location-bot/internal/scraper"
+
+	//"github.com/kettari/location-bot/internal/chatgpt"
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/entity"
-	"github.com/kettari/location-bot/internal/scraper"
+	//"github.com/kettari/location-bot/internal/scraper"
 	"github.com/kettari/location-bot/internal/storage"
 	"log/slog"
 )
@@ -113,10 +116,21 @@ func (cmd *ScheduleCommand) Run() error {
 	slog.Info("Unmarshalled JSON(s) to schedule struct", "schedule_length", len(schedule.Games))
 
 	for _, game := range schedule.Games {
-		slog.Info("Updating the game", "game_external_id", game.ExternalID)
-		result := manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&game)
+		slog.Info("Saving the game", "game_external_id", game.ExternalID)
+		storedGame := game
+		result := manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
 		if result.Error != nil {
 			return result.Error
+		}
+		if !game.Equal(&storedGame) {
+			game.ID = storedGame.ID
+			game.NotificationSent = storedGame.NotificationSent
+			game.Changed = true
+			tx := manager.DB().Save(&game)
+			if tx.Error != nil {
+				return tx.Error
+			}
+			slog.Info("Event was changed, updated in the database", "game_external_id", game.ExternalID)
 		}
 	}
 
