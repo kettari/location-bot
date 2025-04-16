@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	MaxInputLength = 120000
+	MaxInputLength = 60000
 
 	systemMessage = `
 Проанализируй HTML документ, который начинается после строки HTML-ДОКУМЕНТ. 
