@@ -56,19 +56,36 @@ func (cmd *ScheduleCommand) Run() error {
 	}
 	slog.Info("Events page loaded", "size", len(events.Html))
 
-	/*slog.Info("Extracting game IDs")
-	if err = events.ExtractID(); err != nil {
-		return err
-	}*/
-	conf := config.GetConfig()
-	chatGPT := chatgpt.NewChatGPT(conf.OpenAIApiKey, conf.OpenAILanguageModel)
-	var parsedEvents *string
-
-	if parsedEvents, err = chatGPT.NewParseCompletion(firstN(events.Html, 50000)); err != nil {
+	if err = events.BreakDown(); err != nil {
 		return err
 	}
-	slog.Info("Received parsed events", "size", len(*parsedEvents))
-	slog.Debug("Parsed events", "events", *parsedEvents)
+	slog.Info("Broke down events", "events_count", len(events.Parts))
+	chunks := events.Rejoin()
+	slog.Info("Events split to chunks", "chunks_count", len(chunks))
+	var parsedJson []string
+	if len(chunks) > 0 {
+		conf := config.GetConfig()
+		for _, chunk := range chunks {
+
+			slog.Info("Processing events chunk", "chunk_size", len(chunk))
+
+			// Ask ChatGPT to parse piece of the events HTML to JSON
+			chatGPT := chatgpt.NewChatGPT(conf.OpenAIApiKey, conf.OpenAILanguageModel)
+			var jsonBuf *string
+			if jsonBuf, err = chatGPT.NewParseCompletion(chunk); err != nil {
+				return err
+			}
+			if jsonBuf != nil {
+				parsedJson = append(parsedJson, *jsonBuf)
+				slog.Info("Chunk parsed to JSON", "json_size", len(*jsonBuf))
+				slog.Debug("Chunk internals", "json", *jsonBuf)
+			} else {
+				slog.Warn("Events chunk is empty")
+			}
+
+		}
+	}
+	slog.Info("Finished parsing events HTML to JSON", "json_parts_count", len(parsedJson))
 
 	return nil
 }

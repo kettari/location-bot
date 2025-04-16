@@ -2,17 +2,20 @@ package scraper
 
 import (
 	"errors"
+	"github.com/kettari/location-bot/internal/chatgpt"
 	"github.com/kettari/location-bot/internal/entity"
 	"io"
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strings"
 )
 
 type Events struct {
 	URL      string
 	Csrf     *Csrf
 	Html     string
+	Parts    []string
 	Schedule *entity.Schedule
 }
 
@@ -20,6 +23,7 @@ func NewEvents(url string, csrf *Csrf) *Events {
 	return &Events{URL: url, Csrf: csrf}
 }
 
+// LoadEvents from the Rolecon website
 func (e *Events) LoadEvents() error {
 	req, err := http.NewRequest("POST", e.URL, nil)
 	if err != nil {
@@ -60,6 +64,39 @@ func (e *Events) LoadEvents() error {
 	e.Html = string(data)
 
 	return nil
+}
+
+// BreakDown long HTML to well-formed HTML chunks for each event
+func (e *Events) BreakDown() error {
+	r := regexp.MustCompile(`<div class="event-single[^-][^>]+">`)
+	matches := r.FindAllStringIndex(e.Html, -1)
+	previousIndex := 0
+	for _, match := range matches {
+		chunk := e.Html[previousIndex:match[0]]
+		if len(strings.Trim(chunk, " \n\r\t")) > 0 {
+			e.Parts = append(e.Parts, chunk)
+		}
+		previousIndex = match[0]
+	}
+	return nil
+}
+
+// Rejoin builds array of well-formed HTML with events where each part is shorter
+// than maximum OpenAI API allowed request length
+func (e *Events) Rejoin() (result []string) {
+	buf := ""
+	for _, part := range e.Parts {
+		if len(buf+part) < chatgpt.MaxInputLength {
+			buf += part
+		} else {
+			result = append(result, buf)
+			buf = ""
+		}
+	}
+	if len(buf) > 0 {
+		result = append(result, buf)
+	}
+	return result
 }
 
 func (e *Events) ExtractID() error {
