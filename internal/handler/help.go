@@ -21,6 +21,6 @@ func NewHelpHandler() tele.HandlerFunc {
 		} else if !private {
 			return c.Reply("Команды работают только в личной переписке")
 		}
-		return c.Send(commonHelp)
+		return c.Send(commonHelp, &tele.SendOptions{ParseMode: tele.ModeHTML, DisableWebPagePreview: true})
 	}
 }
