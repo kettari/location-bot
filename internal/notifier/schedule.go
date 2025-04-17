@@ -184,6 +184,7 @@ func (s *Schedule) SaveGames() error {
 			return result.Error
 		}
 
+		game.NotificationSent = storedGame.NotificationSent
 		if !game.Equal(&storedGame) {
 			game.NotificationSent = false
 			slog.Info("Event significant properties changed", "game_external_id", game.ExternalID)
