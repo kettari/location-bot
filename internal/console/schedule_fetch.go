@@ -105,6 +105,7 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	schedule := entity.NewSchedule()
 	for _, jsonChunk := range parsedJson {
 		bufSchedule := entity.NewSchedule()
+		slog.Debug("Unmarshalling JSON chunk", "json_chunk", jsonChunk)
 		if err = json.Unmarshal([]byte(jsonChunk), bufSchedule); err != nil {
 			return err
 		}
