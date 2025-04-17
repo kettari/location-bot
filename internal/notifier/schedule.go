@@ -175,10 +175,8 @@ func (s *Schedule) SaveGames() error {
 	// Save collection
 	for _, game := range s.Games {
 		slog.Info("Saving the game", "game_external_id", game.ExternalID)
-		slog.Debug("Game internals", "game", game)
 
 		storedGame := game
-
 		result := s.manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
 		if result.Error != nil {
 			return result.Error
@@ -193,6 +191,7 @@ func (s *Schedule) SaveGames() error {
 		if err := s.manager.DB().Save(&game).Error; err != nil {
 			return err
 		}
+		slog.Debug("Game internals", "game", game)
 	}
 
 	return nil
