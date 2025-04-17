@@ -3,7 +3,7 @@ package scraper
 import (
 	"errors"
 	"github.com/kettari/location-bot/internal/chatgpt"
-	"github.com/kettari/location-bot/internal/entity"
+	"github.com/kettari/location-bot/internal/notifier"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,7 +16,7 @@ type Events struct {
 	Csrf     *Csrf
 	Html     string
 	Parts    []string
-	Schedule *entity.Schedule
+	Schedule *notifier.Schedule
 }
 
 func NewEvents(url string, csrf *Csrf) *Events {

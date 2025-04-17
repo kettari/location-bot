@@ -23,23 +23,11 @@ type Game struct {
 	SeatsTotal       int       `json:"seats_total" gorm:"default:0;not null"`
 	SeatsFree        int       `json:"seats_free" gorm:"default:0;not null"`
 	NotificationSent bool      `json:"-" gorm:"default:false"`
-	Changed          bool      `json:"-" gorm:"default:true"`
 }
 
 func (g *Game) Equal(game *Game) bool {
 	return g.Joinable == game.Joinable &&
-		g.URL == game.URL &&
-		g.Title == game.Title &&
-		g.Date.String() == game.Date.String() &&
-		g.Setting == game.Setting &&
-		g.System == game.System &&
-		g.Genre == game.Genre &&
-		g.MasterName == game.MasterName &&
-		g.MasterLink == game.MasterLink &&
-		g.Description == game.Description &&
-		g.Notes == game.Notes &&
-		g.SeatsTotal == game.SeatsTotal &&
-		g.SeatsFree == game.SeatsFree
+		g.Date.In(time.UTC).String() == game.Date.In(time.UTC).String()
 }
 
 func (g *Game) Format() (string, error) {

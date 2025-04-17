@@ -1,20 +1,26 @@
-package entity
+package notifier
 
 import (
+	"errors"
 	"fmt"
+	"github.com/kettari/location-bot/internal/entity"
+	"github.com/kettari/location-bot/internal/storage"
+	"gorm.io/gorm"
+	"log/slog"
 	"strings"
 	"time"
 )
 
 type Schedule struct {
-	Games []Game `json:"games"`
+	manager *storage.Manager
+	Games   []entity.Game `json:"games"`
 }
 
-func NewSchedule() *Schedule {
-	return &Schedule{}
+func NewSchedule(manager *storage.Manager) *Schedule {
+	return &Schedule{manager: manager}
 }
 
-func (s Schedule) Format() ([]string, error) {
+func (s *Schedule) Format() ([]string, error) {
 	var result []string
 
 	dow := map[string]string{
@@ -63,4 +69,130 @@ func (s Schedule) Format() ([]string, error) {
 	}
 
 	return result, nil
+}
+
+// LoadJoinableEvents loads future joinable games
+func (s *Schedule) LoadJoinableEvents() error {
+	if s.manager == nil {
+		return errors.New("manager not initialized")
+	}
+
+	if err := s.manager.Connect(); err != nil {
+		return err
+	}
+	if result := s.manager.DB().
+		Where(&entity.Game{Joinable: true}).
+		Where("date > ?", time.Now()).
+		Order("date ASC").
+		Find(&s.Games); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			slog.Warn("No joinable future games found, exiting")
+			return nil
+		}
+		return result.Error
+	}
+	slog.Debug("Found joinable future games", "games_count", len(s.Games))
+
+	return nil
+}
+
+// LoadUnnotifiedEvents loads future joinable games which were not notified about
+func (s *Schedule) LoadUnnotifiedEvents() error {
+	if s.manager == nil {
+		return errors.New("manager not initialized")
+	}
+
+	if err := s.manager.Connect(); err != nil {
+		return err
+	}
+	if result := s.manager.DB().
+		Where(&entity.Game{Joinable: true}).
+		Where("notification_sent = ?", false).
+		Where("date > ?", time.Now()).
+		Order("date ASC").
+		Find(&s.Games); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			slog.Info("No joinable unnotified games found, exiting")
+			return nil
+		}
+		return result.Error
+	}
+	slog.Debug("Found joinable unnotified games", "games_count", len(s.Games))
+
+	return nil
+}
+
+// MarkAsNotified marks games unchanged and notified
+func (s *Schedule) MarkAsNotified() error {
+	if s.manager == nil {
+		return errors.New("manager not initialized")
+	}
+
+	for k, _ := range s.Games {
+		s.Games[k].NotificationSent = true
+		if err := s.manager.DB().Save(&s.Games[k]).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Schedule) SaveGames() error {
+	if s.manager == nil {
+		return errors.New("manager not initialized")
+	}
+
+	// Check for absent games
+	var absentCheckGames []entity.Game
+	if result := s.manager.DB().
+		Where(&entity.Game{Joinable: true}).
+		Where("date > ?", time.Now()).
+		Order("date ASC").
+		Find(&absentCheckGames); result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			slog.Warn("No joinable future games found, exiting")
+			return nil
+		}
+		return result.Error
+	}
+	for _, ag := range absentCheckGames {
+		found := false
+		for _, jg := range s.Games {
+			if jg.ExternalID == ag.ExternalID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ag.Joinable = false
+			if err := s.manager.DB().Save(&ag).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	// Save collection
+	for _, game := range s.Games {
+		slog.Info("Saving the game", "game_external_id", game.ExternalID)
+		slog.Debug("Game internals", "game", game)
+
+		storedGame := game
+
+		result := s.manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if !game.Equal(&storedGame) {
+			game.NotificationSent = false
+			slog.Info("Event significant properties changed", "game_external_id", game.ExternalID)
+		}
+		game.ID = storedGame.ID
+		if err := s.manager.DB().Save(&game).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

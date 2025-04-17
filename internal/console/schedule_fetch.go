@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/kettari/location-bot/internal/chatgpt"
 	"github.com/kettari/location-bot/internal/config"
-	"github.com/kettari/location-bot/internal/entity"
+	"github.com/kettari/location-bot/internal/notifier"
 	"github.com/kettari/location-bot/internal/scraper"
 	"github.com/kettari/location-bot/internal/storage"
 	"log/slog"
@@ -101,38 +101,22 @@ func (cmd *ScheduleFetchCommand) Run() error {
 		return err
 	}
 
-	slog.Info("Unmarshalling JSON(s) to the struct")
-	schedule := entity.NewSchedule()
+	slog.Debug("Unmarshalling JSON(s) to the struct")
+	schedule := notifier.NewSchedule(manager)
+	// Append games from all chunks into the general array
 	for _, jsonChunk := range parsedJson {
-		bufSchedule := entity.NewSchedule()
+		bufSchedule := notifier.NewSchedule(manager)
 		slog.Debug("Unmarshalling JSON chunk", "json_chunk", jsonChunk)
 		if err = json.Unmarshal([]byte(jsonChunk), bufSchedule); err != nil {
 			return err
 		}
 		schedule.Games = append(schedule.Games, bufSchedule.Games...)
 	}
-	slog.Info("Unmarshalled JSON(s) to schedule struct", "schedule_length", len(schedule.Games))
+	slog.Debug("Unmarshalled JSON(s) to schedule struct", "schedule_length", len(schedule.Games))
 
-	for _, game := range schedule.Games {
-		slog.Info("Saving the game", "game_external_id", game.ExternalID)
-		slog.Debug("Game JSON internals", "game_json", game)
-		storedGame := game
-		result := manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
-		if result.Error != nil {
-			return result.Error
-		}
-		if !game.Equal(&storedGame) {
-			game.ID = storedGame.ID
-			game.NotificationSent = storedGame.NotificationSent
-			game.Changed = true
-			tx := manager.DB().Save(&game)
-			if tx.Error != nil {
-				return tx.Error
-			}
-			slog.Info("Event was changed, updated in the database", "game_external_id", game.ExternalID)
-		}
+	if err = schedule.SaveGames(); err != nil {
+		return err
 	}
-
 	slog.Info("Finished updating the schedule")
 
 	return nil

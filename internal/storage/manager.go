@@ -19,6 +19,10 @@ func NewManager(connectionString string) *Manager {
 func (m *Manager) Connect() error {
 	var err error
 
+	if m.db != nil {
+		return nil
+	}
+
 	m.db, err = gorm.Open(postgres.Open(m.connectionString), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			TablePrefix: "loc_", // table name prefix, table for `User` would be `t_users`

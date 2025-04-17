@@ -3,6 +3,7 @@ package console
 import (
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/notifier"
+	"github.com/kettari/location-bot/internal/storage"
 )
 
 type ScheduleReportFullCommand struct {
@@ -23,5 +24,12 @@ func (cmd *ScheduleReportFullCommand) Description() string {
 
 func (cmd *ScheduleReportFullCommand) Run() error {
 	conf := config.GetConfig()
-	return notifier.ExecuteReport(conf.NotificationChatID)
+	manager := storage.NewManager(conf.DbConnectionString)
+	schedule := notifier.NewSchedule(manager)
+	if err := schedule.LoadJoinableEvents(); err != nil {
+		return err
+	}
+	report := notifier.NewReport(conf, schedule)
+
+	return report.ExecuteFullReport(conf.NotificationChatID)
 }
