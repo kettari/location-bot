@@ -2,7 +2,9 @@ package handler
 
 import (
 	"fmt"
+	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/notifier"
+	"github.com/kettari/location-bot/internal/storage"
 	tele "gopkg.in/telebot.v4"
 	"log/slog"
 )
@@ -18,7 +20,14 @@ func NewGamesHandler() tele.HandlerFunc {
 		}
 
 		if c.Message() != nil && c.Message().Sender != nil {
-			if err := notifier.ExecuteReport(fmt.Sprintf("%d,0", c.Message().Sender.ID)); err != nil {
+			conf := config.GetConfig()
+			manager := storage.NewManager(conf.DbConnectionString)
+			schedule := notifier.NewSchedule(manager)
+			if err := schedule.LoadJoinableEvents(); err != nil {
+				return err
+			}
+			report := notifier.NewReport(conf, schedule)
+			if err := report.ExecuteFullReport(fmt.Sprintf("%d,0", c.Message().Sender.ID)); err != nil {
 				return err
 			}
 		}
