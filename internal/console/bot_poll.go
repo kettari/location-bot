@@ -46,6 +46,7 @@ func (cmd *BotPollCommand) Run() error {
 	// List bot commands
 	b.Handle("/help", handler.NewHelpHandler())
 	b.Handle("/start", handler.NewStartHandler())
+	b.Handle("/games", handler.NewGamesHandler())
 
 	// Gracefully shutdown the bot after timeout
 	c := make(chan int)
