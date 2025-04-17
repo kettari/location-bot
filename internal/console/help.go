@@ -13,7 +13,7 @@ func (cmd *HelpCommand) Name() string {
 }
 
 func (cmd *HelpCommand) Description() string {
-	return "Dummy command for help"
+	return "dummy command for help"
 }
 
 func (cmd *HelpCommand) Run() error {

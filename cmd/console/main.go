@@ -29,6 +29,7 @@ func initCommands() *Commands {
 		console.NewScheduleFetchCommand(),
 		console.NewScheduleReportFullCommand(),
 		console.NewScheduleReportDeltaCommand(),
+		console.NewBotPollCommand(),
 	}
 }
 
