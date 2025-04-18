@@ -20,7 +20,6 @@ FROM debian:10
 
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y locales cron \
-    && apt-get install logrotate \
     # Remove package lists for smaller image sizes
     && rm -rf /var/lib/apt/lists/* \
     && which cron \
