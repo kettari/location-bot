@@ -4,7 +4,7 @@
 
 # Send notifications for schedule
 30 12 * * *           /var/www/location_console schedule:report:full >> /var/log/cron.log 2>&1
-*/2 13-22 * * *     /var/www/location_console schedule:report:delta >> /var/log/cron.log 2>&1
+#*/2 13-22 * * *     /var/www/location_console schedule:report:delta >> /var/log/cron.log 2>&1
 
 # Run bot poll
 * * * * *           /var/www/location_console bot:poll >> /var/log/cron.log 2>&1
