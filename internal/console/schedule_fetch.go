@@ -114,6 +114,9 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	}
 	slog.Debug("Unmarshalled JSON(s) to schedule struct", "schedule_length", len(schedule.Games))
 
+	if err = schedule.CheckAbsentGames(); err != nil {
+		return err
+	}
 	if err = schedule.SaveGames(); err != nil {
 		return err
 	}

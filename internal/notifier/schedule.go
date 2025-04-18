@@ -138,38 +138,45 @@ func (s *Schedule) MarkAsNotified() error {
 	return nil
 }
 
-func (s *Schedule) SaveGames() error {
+func (s *Schedule) CheckAbsentGames() error {
 	if s.manager == nil {
 		return errors.New("manager not initialized")
 	}
 
 	// Check for absent games
-	var absentCheckGames []entity.Game
+	var storedGames []entity.Game
 	if result := s.manager.DB().
 		Where(&entity.Game{Joinable: true}).
 		Where("date > ?", time.Now()).
 		Order("date ASC").
-		Find(&absentCheckGames); result.Error != nil {
+		Find(&storedGames); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			slog.Warn("No joinable future games found, exiting")
 			return nil
 		}
 		return result.Error
 	}
-	for _, ag := range absentCheckGames {
+	for _, sg := range storedGames {
 		found := false
 		for _, jg := range s.Games {
-			if jg.ExternalID == ag.ExternalID {
+			if jg.ExternalID == sg.ExternalID {
 				found = true
 				break
 			}
 		}
 		if !found {
-			ag.Joinable = false
-			if err := s.manager.DB().Save(&ag).Error; err != nil {
+			slog.Warn("Stored game is absent", "game_id", sg.ExternalID)
+			sg.Joinable = false
+			if err := s.manager.DB().Save(&sg).Error; err != nil {
 				return err
 			}
 		}
+	}
+}
+
+func (s *Schedule) SaveGames() error {
+	if s.manager == nil {
+		return errors.New("manager not initialized")
 	}
 
 	// Save collection
