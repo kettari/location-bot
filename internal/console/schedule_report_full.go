@@ -4,6 +4,7 @@ import (
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/notifier"
 	"github.com/kettari/location-bot/internal/storage"
+	"log/slog"
 )
 
 type ScheduleReportFullCommand struct {
@@ -23,6 +24,8 @@ func (cmd *ScheduleReportFullCommand) Description() string {
 }
 
 func (cmd *ScheduleReportFullCommand) Run() error {
+	slog.Info("Running full report")
+
 	conf := config.GetConfig()
 	manager := storage.NewManager(conf.DbConnectionString)
 	schedule := notifier.NewSchedule(manager)

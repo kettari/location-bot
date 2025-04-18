@@ -30,6 +30,7 @@ func initCommands() *Commands {
 		console.NewScheduleReportFullCommand(),
 		console.NewScheduleReportDeltaCommand(),
 		console.NewBotPollCommand(),
+		console.NewMigrateCommand(),
 	}
 }
 

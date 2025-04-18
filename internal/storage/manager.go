@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"github.com/kettari/location-bot/internal/entity"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -29,10 +28,6 @@ func (m *Manager) Connect() error {
 		},
 	})
 	if err != nil {
-		return err
-	}
-
-	if err = m.db.AutoMigrate(&entity.Game{}); err != nil {
 		return err
 	}
 
