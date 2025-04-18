@@ -13,7 +13,7 @@ import (
 const (
 	MaxInputLength = 60000
 
-	systemMessage = `
+	userMessage = `
 Проанализируй HTML документ, который начинается после строки HTML-ДОКУМЕНТ. 
 Найди в документе расписание игр, каждая игра заключена в тег "div" с классом "event-single".
 
@@ -95,9 +95,9 @@ func (c *ChatGPT) NewParseCompletion(events string) (*string, error) {
 	client := openai.NewClient(option.WithAPIKey(c.openAIApiKey))
 	ctx := context.Background()
 
-	question := systemMessage + "\n" + events
+	question := userMessage + "\n" + events
 
-	slog.Info("Sending a message to ChatGPT")
+	slog.Info("Sending a message to ChatGPT", "request_body_size", len(question))
 
 	// Prepare prompt
 	prompt := []openai.ChatCompletionMessageParamUnion{
