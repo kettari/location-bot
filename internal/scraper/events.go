@@ -2,7 +2,6 @@ package scraper
 
 import (
 	"errors"
-	"github.com/kettari/location-bot/internal/chatgpt"
 	"github.com/kettari/location-bot/internal/notifier"
 	"io"
 	"log/slog"
@@ -84,7 +83,7 @@ func (e *Events) BreakDown() error {
 // Rejoin builds array of well-formed HTML with events where each part is shorter
 // than maximum OpenAI API allowed request length
 func (e *Events) Rejoin() (result []string) {
-	buf := ""
+	/*buf := ""
 	for _, part := range e.Parts {
 		if len(buf+part) < chatgpt.MaxInputLength {
 			buf += part
@@ -95,6 +94,6 @@ func (e *Events) Rejoin() (result []string) {
 	}
 	if len(buf) > 0 {
 		result = append(result, buf)
-	}
-	return result
+	}*/
+	return e.Parts
 }
