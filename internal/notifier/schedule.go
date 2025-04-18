@@ -187,7 +187,7 @@ func (s *Schedule) SaveGames() error {
 			//game.NotificationSent = false
 			slog.Warn("Event significant properties changed", "game_external_id", game.ExternalID,
 				"old_date", storedGame.Date.In(time.UTC).String(), "new_date", game.Date.In(time.UTC).String(),
-				"old_joinable", storedGame.Joinable, "new_joinable", storedGame.Joinable,
+				"old_joinable", storedGame.Joinable, "new_joinable", game.Joinable,
 			)
 		}
 		game.ID = storedGame.ID
