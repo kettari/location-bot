@@ -95,5 +95,17 @@ func (e *Events) Rejoin() (result []string) {
 	if len(buf) > 0 {
 		result = append(result, buf)
 	}*/
-	return e.Parts
+	var buf []string
+	for _, part := range e.Parts {
+		if len(buf) < 2 {
+			buf = append(buf, part)
+		} else {
+			result = append(result, buf...)
+			buf = []string{}
+		}
+	}
+	if len(buf) > 0 {
+		result = append(result, buf...)
+	}
+	return result
 }
