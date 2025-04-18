@@ -172,6 +172,8 @@ func (s *Schedule) CheckAbsentGames() error {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (s *Schedule) SaveGames() error {
