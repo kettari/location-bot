@@ -1,21 +1,24 @@
 package scraper
 
 import (
-	"errors"
-	"github.com/kettari/location-bot/internal/notifier"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"regexp"
-	"strings"
 )
 
 type Events struct {
-	URL      string
-	Csrf     *Csrf
-	Html     string
-	Parts    []string
-	Schedule *notifier.Schedule
+	URL    string
+	Csrf   *Csrf
+	JSON   string
+	Events []RoleconEvent
+}
+
+type RoleconEvent struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
 }
 
 func NewEvents(url string, csrf *Csrf) *Events {
@@ -24,7 +27,7 @@ func NewEvents(url string, csrf *Csrf) *Events {
 
 // LoadEvents from the Rolecon website
 func (e *Events) LoadEvents() error {
-	req, err := http.NewRequest("POST", e.URL, nil)
+	req, err := http.NewRequest("GET", e.URL, nil)
 	if err != nil {
 		return err
 	}
@@ -51,8 +54,7 @@ func (e *Events) LoadEvents() error {
 	}(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Error("Failed to load events HTML page", "url", e.URL, "http_code", resp.StatusCode, "status", resp.Status)
-		return errors.New("failed to load events HTML page")
+		return fmt.Errorf("failed to load events HTML page %s with HTTP code %d %s", e.URL, resp.StatusCode, resp.Status)
 	}
 
 	data, err := io.ReadAll(resp.Body)
@@ -60,52 +62,18 @@ func (e *Events) LoadEvents() error {
 		return err
 	}
 
-	e.Html = string(data)
+	e.JSON = string(data)
 
 	return nil
 }
 
-// BreakDown long HTML to well-formed HTML chunks for each event
-func (e *Events) BreakDown() error {
-	r := regexp.MustCompile(`<div class="event-single[^-][^>]+">`)
-	matches := r.FindAllStringIndex(e.Html, -1)
-	previousIndex := 0
-	for _, match := range matches {
-		chunk := e.Html[previousIndex:match[0]]
-		if len(strings.Trim(chunk, " \n\r\t")) > 0 {
-			e.Parts = append(e.Parts, chunk)
-		}
-		previousIndex = match[0]
+func (e *Events) UnmarshalEvents() error {
+	if err := json.Unmarshal([]byte(e.JSON), &e.Events); err != nil {
+		return err
 	}
-	return nil
-}
+	if len(e.Events) == 0 {
+		return fmt.Errorf("no events found after unmarshal")
+	}
 
-// Rejoin builds array of well-formed HTML with events where each part is shorter
-// than maximum OpenAI API allowed request length
-func (e *Events) Rejoin() (result []string) {
-	/*buf := ""
-	for _, part := range e.Parts {
-		if len(buf+part) < chatgpt.MaxInputLength {
-			buf += part
-		} else {
-			result = append(result, buf)
-			buf = ""
-		}
-	}
-	if len(buf) > 0 {
-		result = append(result, buf)
-	}*/
-	var buf []string
-	for _, part := range e.Parts {
-		if len(buf) < 2 {
-			buf = append(buf, part)
-		} else {
-			result = append(result, buf...)
-			buf = []string{}
-		}
-	}
-	if len(buf) > 0 {
-		result = append(result, buf...)
-	}
-	return result
+	return nil
 }

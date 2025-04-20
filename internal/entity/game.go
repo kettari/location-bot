@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+type CalendarEventType string
+
+const (
+	CalendarEventWeekday = "weekday"
+	CalendarEventWeekend = "weekend"
+)
+
 type Game struct {
 	gorm.Model
 	ExternalID       string    `json:"id" gorm:"unique;not null"`
@@ -23,6 +30,7 @@ type Game struct {
 	SeatsTotal       int       `json:"seats_total" gorm:"default:0;not null"`
 	SeatsFree        int       `json:"seats_free" gorm:"default:0;not null"`
 	NotificationSent bool      `json:"-" gorm:"default:false"`
+	Slot             int       `json:"-" gorm:"-:all"`
 }
 
 func (g *Game) Equal(game *Game) bool {
