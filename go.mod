@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	github.com/openai/openai-go v0.1.0-beta.10
+	golang.org/x/net v0.34.0
 	gopkg.in/telebot.v4 v4.0.0-beta.4
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12

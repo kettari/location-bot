@@ -20,6 +20,10 @@ func NewSchedule(manager *storage.Manager) *Schedule {
 	return &Schedule{manager: manager}
 }
 
+func (s *Schedule) Add(games ...entity.Game) {
+	s.Games = append(s.Games, games...)
+}
+
 func (s *Schedule) Format() ([]string, error) {
 	var result []string
 
