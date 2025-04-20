@@ -117,9 +117,17 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	}
 	slog.Debug("pages parsed to games", "games_count", len(schedule.Games))
 
+	slog.Debug("saving games", "games_count", len(schedule.Games))
 	if err = schedule.SaveGames(); err != nil {
 		return err
 	}
+	slog.Debug("games saved", "games_count", len(schedule.Games))
+
+	slog.Debug("check absent games")
+	if err = schedule.CheckAbsentGames(); err != nil {
+		return err
+	}
+	slog.Debug("absent games checked")
 
 	slog.Info("schedule fetched")
 

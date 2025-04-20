@@ -90,12 +90,12 @@ func (s *Schedule) LoadJoinableEvents() error {
 		Order("date ASC").
 		Find(&s.Games); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			slog.Warn("No joinable future games found, exiting")
+			slog.Warn("no joinable future games found, exiting")
 			return nil
 		}
 		return result.Error
 	}
-	slog.Debug("Found joinable future games", "games_count", len(s.Games))
+	slog.Debug("found joinable future games", "games_count", len(s.Games))
 
 	return nil
 }
@@ -116,12 +116,12 @@ func (s *Schedule) LoadUnnotifiedEvents() error {
 		Order("date ASC").
 		Find(&s.Games); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			slog.Info("No joinable unnotified games found, exiting")
+			slog.Info("no joinable unnotified games found, exiting")
 			return nil
 		}
 		return result.Error
 	}
-	slog.Debug("Found joinable unnotified games", "games_count", len(s.Games))
+	slog.Debug("found joinable unnotified games", "games_count", len(s.Games))
 
 	return nil
 }
@@ -155,7 +155,7 @@ func (s *Schedule) CheckAbsentGames() error {
 		Order("date ASC").
 		Find(&storedGames); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			slog.Warn("No joinable future games found, exiting")
+			slog.Warn("no joinable future games found, exiting")
 			return nil
 		}
 		return result.Error
@@ -169,7 +169,7 @@ func (s *Schedule) CheckAbsentGames() error {
 			}
 		}
 		if !found {
-			slog.Warn("Stored game is absent", "game_id", sg.ExternalID)
+			slog.Warn("stored game is absent", "game_id", sg.ExternalID)
 			sg.Joinable = false
 			if err := s.manager.DB().Save(&sg).Error; err != nil {
 				return err
@@ -187,7 +187,7 @@ func (s *Schedule) SaveGames() error {
 
 	// Save collection
 	for _, game := range s.Games {
-		slog.Info("Saving the game", "game_external_id", game.ExternalID)
+		slog.Debug("saving the game", "game_external_id", game.ExternalID)
 
 		storedGame := game
 		result := s.manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
@@ -198,7 +198,7 @@ func (s *Schedule) SaveGames() error {
 		game.NotificationSent = storedGame.NotificationSent
 		if !game.Equal(&storedGame) {
 			//game.NotificationSent = false
-			slog.Warn("Event significant properties changed", "game_external_id", game.ExternalID,
+			slog.Warn("event significant properties changed", "game_external_id", game.ExternalID,
 				"old_date", storedGame.Date.In(time.UTC).String(), "new_date", game.Date.In(time.UTC).String(),
 				"old_joinable", storedGame.Joinable, "new_joinable", game.Joinable,
 			)
@@ -207,7 +207,7 @@ func (s *Schedule) SaveGames() error {
 		if err := s.manager.DB().Save(&game).Error; err != nil {
 			return err
 		}
-		slog.Debug("Game internals", "game", game)
+		slog.Debug("game internals", "game", game)
 	}
 
 	return nil

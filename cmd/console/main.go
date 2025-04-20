@@ -10,7 +10,7 @@ import (
 type Commands []console.Command
 
 func main() {
-	slog.Info("Starting console command")
+	slog.Info("starting console command")
 
 	//conf := config.GetConfig()
 	commands := initCommands()
@@ -20,7 +20,7 @@ func main() {
 		printHelp(commands)
 	}
 
-	slog.Info("Command finished")
+	slog.Info("command finished")
 }
 
 func initCommands() *Commands {
@@ -38,7 +38,7 @@ func runCommand(commands *Commands, arg string) {
 	found := false
 	for _, cmd := range *commands {
 		if arg == cmd.Name() {
-			slog.Info("Command found", "command", cmd.Name())
+			slog.Info("command found", "command", cmd.Name())
 			found = true
 			if err := cmd.Run(); err != nil {
 				slog.Error(err.Error())
@@ -48,7 +48,7 @@ func runCommand(commands *Commands, arg string) {
 		}
 	}
 	if !found {
-		fmt.Printf("Command '%s' not found\n", arg)
+		fmt.Printf("command '%s' not found\n", arg)
 	}
 }
 

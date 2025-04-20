@@ -7,7 +7,7 @@ import (
 
 func NewStartHandler() tele.HandlerFunc {
 	return func(c tele.Context) error {
-		slog.Info("Got command /start", "from", formatHumanName(c.Sender()), "chat", formatHumanName(c.Chat()))
+		slog.Info("got command /start", "from", formatHumanName(c.Sender()), "chat", formatHumanName(c.Chat()))
 		h := NewHelpHandler()
 		return h(c)
 	}

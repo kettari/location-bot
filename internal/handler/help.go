@@ -14,7 +14,7 @@ const commonHelp = `Этот бот умеет высылать список и�
 
 func NewHelpHandler() tele.HandlerFunc {
 	return func(c tele.Context) error {
-		slog.Info("Got command /help", "from", formatHumanName(c.Sender()), "chat", formatHumanName(c.Chat()))
+		slog.Info("got command /help", "from", formatHumanName(c.Sender()), "chat", formatHumanName(c.Chat()))
 		// Only in private chats
 		if private, err := isPrivate(c); err != nil {
 			return err

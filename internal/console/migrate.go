@@ -24,7 +24,7 @@ func (cmd *MigrateCommand) Description() string {
 }
 
 func (cmd *MigrateCommand) Run() error {
-	slog.Info("Migrating GORM database scheme")
+	slog.Info("migrating GORM database scheme")
 
 	conf := config.GetConfig()
 	manager := storage.NewManager(conf.DbConnectionString)
@@ -35,7 +35,7 @@ func (cmd *MigrateCommand) Run() error {
 		return err
 	}
 
-	slog.Info("Successfully migrated GORM database scheme")
+	slog.Info("successfully migrated GORM database scheme")
 
 	return nil
 }

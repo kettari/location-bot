@@ -30,14 +30,14 @@ func (cmd *BotPollCommand) Description() string {
 func (cmd *BotPollCommand) Run() error {
 	conf := config.GetConfig()
 
-	slog.Info("Starting the bot")
+	slog.Info("starting the bot")
 	pref := tele.Settings{
 		Token:  conf.BotToken,
 		Poller: &tele.LongPoller{Timeout: 1 * time.Second},
 	}
 	b, err := tele.NewBot(pref)
 	if err != nil {
-		slog.Error("Unable to create bot processor object", "error", err)
+		slog.Error("unable to create bot processor object", "error", err)
 		return err
 	}
 	// Add middleware
@@ -54,7 +54,7 @@ func (cmd *BotPollCommand) Run() error {
 	// Start poll
 	b.Start()
 
-	slog.Info("Bot stopped, exiting")
+	slog.Info("bot stopped, exiting")
 
 	return nil
 }
@@ -62,11 +62,11 @@ func (cmd *BotPollCommand) Run() error {
 // stopPoll after timeout
 func stopPoll(bot *tele.Bot, c chan int) {
 	stop := time.After(pollTimeout * time.Second)
-	slog.Info("Timeout for shutdown started", "timeout_seconds", pollTimeout)
+	slog.Info("timeout for shutdown started", "timeout_seconds", pollTimeout)
 	for {
 		select {
 		case <-stop:
-			slog.Info("Stopping the poll")
+			slog.Info("stopping the poll")
 			bot.Stop()
 			return
 		}

@@ -22,15 +22,15 @@ func NewReport(conf *config.Config, schedule *Schedule) *Report {
 //
 // Destination format: chat_id_1,thread_id_1;chat_id_2,thread_id_2
 func (r *Report) ExecuteFullReport(destination string) error {
-	slog.Info("Executing joinable games full report")
+	slog.Info("executing joinable games full report")
 
-	slog.Debug("Starting the bot")
+	slog.Debug("starting the bot")
 	pref := tele.Settings{
 		Token: r.conf.BotToken,
 	}
 	b, err := tele.NewBot(pref)
 	if err != nil {
-		slog.Error("Unable to create bot processor object", "error", err)
+		slog.Error("unable to create bot processor object", "error", err)
 		return err
 	}
 	// Add middleware
@@ -42,7 +42,7 @@ func (r *Report) ExecuteFullReport(destination string) error {
 		chatID, _ := strconv.ParseInt(dst[0], 10, 0)
 		threadID, _ := strconv.Atoi(dst[1])
 		recipient := tele.User{ID: chatID}
-		slog.Debug("Sending notification", "recipient", recipient)
+		slog.Debug("sending notification", "recipient", recipient)
 
 		notification, err := r.schedule.Format()
 		if err != nil {
@@ -56,17 +56,17 @@ func (r *Report) ExecuteFullReport(destination string) error {
 				slog.Error("Failed to send notification")
 				return err
 			}
-			slog.Debug("Notification sent", "message", message)
+			slog.Debug("notification sent", "message", message)
 		}
 
 	}
 
-	slog.Debug("All notifications sent, update entities", "games_count", len(r.schedule.Games))
+	slog.Debug("all notifications sent, update entities", "games_count", len(r.schedule.Games))
 	if err = r.schedule.MarkAsNotified(); err != nil {
 		return err
 	}
 
-	slog.Info("Full report sent")
+	slog.Info("full report sent")
 
 	return nil
 }
@@ -75,15 +75,15 @@ func (r *Report) ExecuteFullReport(destination string) error {
 //
 // Destination format: chat_id_1,thread_id_1;chat_id_2,thread_id_2
 func (r *Report) ExecuteDeltaReport(destination string) error {
-	slog.Info("Executing joinable games delta report")
+	slog.Info("executing joinable games delta report")
 
-	slog.Debug("Starting the bot")
+	slog.Debug("starting the bot")
 	pref := tele.Settings{
 		Token: r.conf.BotToken,
 	}
 	b, err := tele.NewBot(pref)
 	if err != nil {
-		slog.Error("Unable to create bot processor object", "error", err)
+		slog.Error("unable to create bot processor object", "error", err)
 		return err
 	}
 	// Add middleware
@@ -101,7 +101,7 @@ func (r *Report) ExecuteDeltaReport(destination string) error {
 			chatID, _ := strconv.ParseInt(dst[0], 10, 0)
 			threadID, _ := strconv.Atoi(dst[1])
 			recipient := tele.User{ID: chatID}
-			slog.Debug("Sending notification", "recipient", recipient)
+			slog.Debug("sending notification", "recipient", recipient)
 
 			var message *tele.Message
 			if message, err = b.Send(&recipient, notification, &tele.SendOptions{
@@ -109,16 +109,16 @@ func (r *Report) ExecuteDeltaReport(destination string) error {
 				slog.Error("Failed to send notification")
 				return err
 			}
-			slog.Debug("Notification sent", "message", message)
+			slog.Debug("notification sent", "message", message)
 		}
 	}
 
-	slog.Debug("All notifications sent, update entities", "games_count", len(r.schedule.Games))
+	slog.Debug("all notifications sent, update entities", "games_count", len(r.schedule.Games))
 	if err = r.schedule.MarkAsNotified(); err != nil {
 		return err
 	}
 
-	slog.Info("Delta report sent")
+	slog.Info("delta report sent")
 
 	return nil
 }

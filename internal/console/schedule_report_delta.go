@@ -24,7 +24,7 @@ func (cmd *ScheduleReportDeltaCommand) Description() string {
 }
 
 func (cmd *ScheduleReportDeltaCommand) Run() error {
-	slog.Info("Running delta report")
+	slog.Info("running delta report")
 
 	conf := config.GetConfig()
 	manager := storage.NewManager(conf.DbConnectionString)

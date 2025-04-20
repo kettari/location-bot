@@ -24,7 +24,7 @@ func (cmd *ScheduleReportFullCommand) Description() string {
 }
 
 func (cmd *ScheduleReportFullCommand) Run() error {
-	slog.Info("Running full report")
+	slog.Info("running full report")
 
 	conf := config.GetConfig()
 	manager := storage.NewManager(conf.DbConnectionString)

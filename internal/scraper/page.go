@@ -29,7 +29,7 @@ func (p *Page) LoadHtml() error {
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
 		if err != nil {
-			slog.Error("Failed to close response body", "url", p.URL, "err", err)
+			slog.Error("failed to close response body", "url", p.URL, "err", err)
 		}
 	}(resp.Body)
 
