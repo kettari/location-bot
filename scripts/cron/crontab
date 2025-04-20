@@ -1,6 +1,5 @@
 # Fetch schedule
 */5 * * * *      /var/www/location_console schedule:fetch >> /var/log/cron.log 2>&1
-#0 14-23/4 * * *      /var/www/location_console schedule:fetch >> /var/log/cron.log 2>&1
 
 # Send notifications for schedule
 30 12 * * *           /var/www/location_console schedule:report:full >> /var/log/cron.log 2>&1
