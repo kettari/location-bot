@@ -7,6 +7,7 @@ import (
 	"github.com/kettari/location-bot/internal/parser"
 	"github.com/kettari/location-bot/internal/scraper"
 	"github.com/kettari/location-bot/internal/storage"
+	tele "gopkg.in/telebot.v4"
 	"log/slog"
 	"sync"
 	"time"
@@ -116,6 +117,22 @@ func (cmd *ScheduleFetchCommand) Run() error {
 		return err
 	}
 	slog.Debug("pages parsed to games", "games_count", len(schedule.Games))
+
+	// Register observers
+	slog.Debug("starting the bot")
+	pref := tele.Settings{
+		Token: conf.BotToken,
+	}
+	b, err := tele.NewBot(pref)
+	if err != nil {
+		slog.Error("unable to create bot processor object", "error", err)
+		return err
+	}
+	for k, _ := range schedule.Games {
+		schedule.Games[k].Register(notifier.NewNewGame(b))
+		schedule.Games[k].Register(notifier.NewBecomeJoinableGame(b))
+		schedule.Games[k].Register(notifier.NewCancelledGame(b))
+	}
 
 	slog.Debug("saving games", "games_count", len(schedule.Games))
 	if err = schedule.SaveGames(); err != nil {
