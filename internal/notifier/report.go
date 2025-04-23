@@ -91,11 +91,8 @@ func (r *Report) ExecuteDeltaReport(destination string) error {
 
 	notificationChatIDs := strings.Split(destination, ";")
 	for _, game := range r.schedule.Games {
-		notification, err := game.Format()
-		if err != nil {
-			return err
-		}
-
+		notification := game.FormatNew()
+		
 		for _, pair := range notificationChatIDs {
 			dst := strings.Split(pair, ",")
 			chatID, _ := strconv.ParseInt(dst[0], 10, 0)

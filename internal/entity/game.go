@@ -31,27 +31,41 @@ type Game struct {
 	SeatsFree        int       `json:"seats_free" gorm:"default:0;not null"`
 	NotificationSent bool      `json:"-" gorm:"default:false"`
 	Slot             int       `json:"-" gorm:"-:all"`
+
+	// Observers
+	observerList []Observer
 }
 
-func (g *Game) Equal(game *Game) bool {
-	return g.Joinable == game.Joinable &&
-		g.Date.In(time.UTC).String() == game.Date.In(time.UTC).String()
+var dow = map[string]string{
+	"Mon": "ПОНЕДЕЛЬНИК",
+	"Tue": "ВТОРНИК",
+	"Wed": "СРЕДА",
+	"Thu": "ЧЕТВЕРГ",
+	"Fri": "ПЯТНИЦА",
+	"Sat": "СУББОТА",
+	"Sun": "ВОСКРЕСЕНЬЕ",
 }
 
-func (g *Game) Format() (string, error) {
-	dow := map[string]string{
-		"Mon": "ПОНЕДЕЛЬНИК",
-		"Tue": "ВТОРНИК",
-		"Wed": "СРЕДА",
-		"Thu": "ЧЕТВЕРГ",
-		"Fri": "ПЯТНИЦА",
-		"Sat": "СУББОТА",
-		"Sun": "ВОСКРЕСЕНЬЕ",
-	}
+func (g *Game) EqualDate(game *Game) bool {
+	return g.Date.In(time.UTC).String() == game.Date.In(time.UTC).String()
+}
 
+// FreeSeatsAdded returns true if number of free seats was zero, now game is in the future,
+// is joinable and has positive free seats
+func (g *Game) FreeSeatsAdded(game *Game) bool {
+	return g.Date.After(time.Now()) && g.Joinable && g.SeatsFree > 0 && game.SeatsFree == 0
+}
+
+// BecomeJoinable returns true if game was not joinable, now game is in the future,
+// is joinable and has positive free seats
+func (g *Game) BecomeJoinable(game *Game) bool {
+	return g.Date.After(time.Now()) && g.Joinable && g.SeatsFree > 0 && !game.Joinable
+}
+
+func (g *Game) FormatNew() string {
 	moscow, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
 	result := fmt.Sprintf("<b>%s</b> (%s, %s)",
@@ -67,5 +81,46 @@ func (g *Game) Format() (string, error) {
 		g.System,
 		g.Setting)
 
-	return result, nil
+	return result
+}
+
+func (g *Game) FormatCancelled() string {
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		panic(err)
+	}
+
+	result := fmt.Sprintf("Игра отменена:\n\n<b>%s</b> (%s, %s)",
+		dow[g.Date.In(moscow).Format("Mon")],
+		g.Date.In(moscow).Format("02.01"),
+		g.Date.In(moscow).Format("15:04"))
+
+	result += fmt.Sprintf("\n%s [%s; %s]",
+		g.Title,
+		g.System,
+		g.Setting)
+
+	return result
+}
+
+func (g *Game) Register(observer Observer) {
+	g.observerList = append(g.observerList, observer)
+}
+
+func (g *Game) notifyAll(subject SubjectType) {
+	for _, observer := range g.observerList {
+		observer.Update(g, subject)
+	}
+}
+
+func (g *Game) OnNew() {
+	g.notifyAll(SubjectTypeNew)
+}
+
+func (g *Game) OnBecomeJoinable() {
+	g.notifyAll(SubjectTypeBecomeJoinable)
+}
+
+func (g *Game) OnCancelled() {
+	g.notifyAll(SubjectTypeCancelled)
 }
