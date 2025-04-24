@@ -18,7 +18,7 @@ func NewBecomeJoinableGame(bot *telebot.Bot) *BecomeJoinableGame {
 
 func (g *BecomeJoinableGame) Update(game *entity.Game, subject entity.SubjectType) {
 	if subject == entity.SubjectTypeBecomeJoinable {
-		slog.Warn("game become joinable event fired", "game_id", game.ID)
+		slog.Warn("game become joinable event fired", "game_id", game.ExternalID)
 
 		recipient := telebot.User{ID: 9505498}
 		notification := game.FormatNew()

@@ -18,7 +18,7 @@ func NewNewGame(bot *telebot.Bot) *NewGame {
 
 func (g *NewGame) Update(game *entity.Game, subject entity.SubjectType) {
 	if subject == entity.SubjectTypeNew {
-		slog.Info("new game event fired", "game_id", game.ID)
+		slog.Info("new game event fired", "game_id", game.ExternalID)
 
 		recipient := telebot.User{ID: 9505498}
 		notification := game.FormatNew()

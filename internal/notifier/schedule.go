@@ -214,7 +214,7 @@ func (s *Schedule) SaveGames() error {
 		slog.Debug("game internals", "game", game)
 
 		// Select event
-		if newGame {
+		if newGame && game.NewJoinable() {
 			game.OnNew()
 		} else if game.FreeSeatsAdded(&storedGame) || game.BecomeJoinable(&storedGame) {
 			game.OnBecomeJoinable()

@@ -50,6 +50,11 @@ func (g *Game) EqualDate(game *Game) bool {
 	return g.Date.In(time.UTC).String() == game.Date.In(time.UTC).String()
 }
 
+// NewJoinable returns true if new game is in the future and joinable
+func (g *Game) NewJoinable() bool {
+	return g.Date.After(time.Now()) && g.Joinable && g.SeatsFree > 0
+}
+
 // FreeSeatsAdded returns true if number of free seats was zero, now game is in the future,
 // is joinable and has positive free seats
 func (g *Game) FreeSeatsAdded(game *Game) bool {

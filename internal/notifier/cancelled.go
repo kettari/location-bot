@@ -18,7 +18,7 @@ func NewCancelledGame(bot *telebot.Bot) *CancelledGame {
 
 func (g *CancelledGame) Update(game *entity.Game, subject entity.SubjectType) {
 	if subject == entity.SubjectTypeCancelled {
-		slog.Warn("cancelled game event fired", "game_id", game.ID)
+		slog.Warn("cancelled game event fired", "game_id", game.ExternalID)
 
 		recipient := telebot.User{ID: 9505498}
 		notification := game.FormatCancelled()
