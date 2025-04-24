@@ -174,6 +174,7 @@ func (s *Schedule) CheckAbsentGames() error {
 			if err := s.manager.DB().Save(&sg).Error; err != nil {
 				return err
 			}
+			slog.Debug("cancelled game internals", "game", sg)
 			if sg.WasJoinable() {
 				sg.OnCancelled()
 			}
