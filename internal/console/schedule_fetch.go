@@ -129,9 +129,9 @@ func (cmd *ScheduleFetchCommand) Run() error {
 		return err
 	}
 	for k, _ := range schedule.Games {
-		schedule.Games[k].Register(notifier.NewNewGame(b))
-		schedule.Games[k].Register(notifier.NewBecomeJoinableGame(b))
-		schedule.Games[k].Register(notifier.NewCancelledGame(b))
+		schedule.Games[k].Register(notifier.NewGameObserver(b))
+		schedule.Games[k].Register(notifier.BecomeJoinableGameObserver(b))
+		schedule.Games[k].Register(notifier.CancelledGameObserver(b))
 	}
 
 	slog.Debug("saving games", "games_count", len(schedule.Games))

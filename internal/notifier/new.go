@@ -10,10 +10,15 @@ type NewGame struct {
 	bot *telebot.Bot
 }
 
-func NewNewGame(bot *telebot.Bot) *NewGame {
-	return &NewGame{
-		bot: bot,
+var newGame *NewGame
+
+func NewGameObserver(bot *telebot.Bot) *NewGame {
+	if newGame == nil {
+		newGame = &NewGame{
+			bot: bot,
+		}
 	}
+	return newGame
 }
 
 func (g *NewGame) Update(game *entity.Game, subject entity.SubjectType) {

@@ -10,10 +10,15 @@ type CancelledGame struct {
 	bot *telebot.Bot
 }
 
-func NewCancelledGame(bot *telebot.Bot) *CancelledGame {
-	return &CancelledGame{
-		bot: bot,
+var cancelledGame *CancelledGame
+
+func CancelledGameObserver(bot *telebot.Bot) *CancelledGame {
+	if cancelledGame == nil {
+		cancelledGame = &CancelledGame{
+			bot: bot,
+		}
 	}
+	return cancelledGame
 }
 
 func (g *CancelledGame) Update(game *entity.Game, subject entity.SubjectType) {

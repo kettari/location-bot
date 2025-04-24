@@ -8,32 +8,26 @@ import (
 
 type CalendarEventType string
 
-const (
-	CalendarEventWeekday = "weekday"
-	CalendarEventWeekend = "weekend"
-)
-
 type Game struct {
 	gorm.Model
-	ExternalID       string    `json:"id" gorm:"unique;not null"`
-	Joinable         bool      `json:"joinable" gorm:"default:false;not null"`
-	URL              string    `json:"url" gorm:"size:1024"`
-	Title            string    `json:"title" gorm:"size:1024"`
-	Date             time.Time `json:"date"`
-	Setting          string    `json:"setting" gorm:"size:100"`
-	System           string    `json:"system" gorm:"size:100"`
-	Genre            string    `json:"genre" gorm:"size:100"`
-	MasterName       string    `json:"master_name" gorm:"size:100"`
-	MasterLink       string    `json:"master_link" gorm:"size:1024"`
-	Description      string    `json:"description"`
-	Notes            string    `json:"notes"`
-	SeatsTotal       int       `json:"seats_total" gorm:"default:0;not null"`
-	SeatsFree        int       `json:"seats_free" gorm:"default:0;not null"`
-	NotificationSent bool      `json:"-" gorm:"default:false"`
-	Slot             int       `json:"-" gorm:"-:all"`
+	ExternalID  string    `json:"id" gorm:"unique;not null"`
+	Joinable    bool      `json:"joinable" gorm:"default:false;not null"`
+	URL         string    `json:"url" gorm:"size:1024"`
+	Title       string    `json:"title" gorm:"size:1024"`
+	Date        time.Time `json:"date" gorm:"index"`
+	Setting     string    `json:"setting" gorm:"size:100"`
+	System      string    `json:"system" gorm:"size:100"`
+	Genre       string    `json:"genre" gorm:"size:100"`
+	MasterName  string    `json:"master_name" gorm:"size:100"`
+	MasterLink  string    `json:"master_link" gorm:"size:1024"`
+	Description string    `json:"description"`
+	Notes       string    `json:"notes"`
+	SeatsTotal  int       `json:"seats_total" gorm:"default:0;not null"`
+	SeatsFree   int       `json:"seats_free" gorm:"default:0;not null"`
+	Slot        int       `json:"-" gorm:"-:all"`
 
 	// Observers
-	observerList []Observer
+	observerList []*Observer
 }
 
 var dow = map[string]string{
@@ -114,12 +108,12 @@ func (g *Game) FormatCancelled() string {
 }
 
 func (g *Game) Register(observer Observer) {
-	g.observerList = append(g.observerList, observer)
+	g.observerList = append(g.observerList, &observer)
 }
 
 func (g *Game) notifyAll(subject SubjectType) {
 	for _, observer := range g.observerList {
-		observer.Update(g, subject)
+		(*observer).Update(g, subject)
 	}
 }
 

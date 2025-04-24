@@ -3,8 +3,10 @@ package notifier
 import (
 	"errors"
 	"fmt"
+	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/entity"
 	"github.com/kettari/location-bot/internal/storage"
+	tele "gopkg.in/telebot.v4"
 	"gorm.io/gorm"
 	"log/slog"
 	"strings"
@@ -133,7 +135,6 @@ func (s *Schedule) MarkAsNotified() error {
 	}
 
 	for k, _ := range s.Games {
-		s.Games[k].NotificationSent = true
 		if err := s.manager.DB().Save(&s.Games[k]).Error; err != nil {
 			return err
 		}
@@ -159,6 +160,20 @@ func (s *Schedule) CheckAbsentGames() error {
 			return nil
 		}
 		return result.Error
+	}
+	// Register observers
+	slog.Debug("starting the bot")
+	conf := config.GetConfig()
+	pref := tele.Settings{
+		Token: conf.BotToken,
+	}
+	b, err := tele.NewBot(pref)
+	if err != nil {
+		slog.Error("unable to create bot processor object", "error", err)
+		return err
+	}
+	for k, _ := range storedGames {
+		storedGames[k].Register(CancelledGameObserver(b))
 	}
 	for _, sg := range storedGames {
 		found := false
@@ -199,7 +214,7 @@ func (s *Schedule) SaveGames() error {
 		if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return result.Error
 		}
-		newGame := errors.Is(result.Error, gorm.ErrRecordNotFound)
+		freshGame := errors.Is(result.Error, gorm.ErrRecordNotFound)
 
 		// Find or create record for the game in the DB
 		result = s.manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).FirstOrCreate(&storedGame)
@@ -208,14 +223,13 @@ func (s *Schedule) SaveGames() error {
 		}
 
 		game.ID = storedGame.ID
-		game.NotificationSent = storedGame.NotificationSent
 		if err := s.manager.DB().Save(&game).Error; err != nil {
 			return err
 		}
 		slog.Debug("game internals", "game", game)
 
 		// Select event
-		if newGame && game.NewJoinable() {
+		if freshGame && game.NewJoinable() {
 			game.OnNew()
 		} else if game.FreeSeatsAdded(&storedGame) || game.BecomeJoinable(&storedGame) {
 			game.OnBecomeJoinable()

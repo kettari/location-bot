@@ -9,6 +9,6 @@ const (
 )
 
 type subject interface {
-	Register(observer Observer)
+	Register(observer *Observer)
 	notifyAll(subject SubjectType)
 }

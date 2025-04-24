@@ -10,10 +10,15 @@ type BecomeJoinableGame struct {
 	bot *telebot.Bot
 }
 
-func NewBecomeJoinableGame(bot *telebot.Bot) *BecomeJoinableGame {
-	return &BecomeJoinableGame{
-		bot: bot,
+var becomeJoinableGame *BecomeJoinableGame
+
+func BecomeJoinableGameObserver(bot *telebot.Bot) *BecomeJoinableGame {
+	if becomeJoinableGame == nil {
+		becomeJoinableGame = &BecomeJoinableGame{
+			bot: bot,
+		}
 	}
+	return becomeJoinableGame
 }
 
 func (g *BecomeJoinableGame) Update(game *entity.Game, subject entity.SubjectType) {
