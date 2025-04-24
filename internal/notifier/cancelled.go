@@ -23,11 +23,9 @@ func (g *CancelledGame) Update(game *entity.Game, subject entity.SubjectType) {
 		recipient := telebot.User{ID: 9505498}
 		notification := game.FormatCancelled()
 
-		for _, txt := range notification {
-			if _, err := g.bot.Send(&recipient, txt, &telebot.SendOptions{
-				ParseMode: telebot.ModeHTML, ThreadID: 0, DisableWebPagePreview: true}); err != nil {
-				slog.Error("failed to send notification", "error", err)
-			}
+		if _, err := g.bot.Send(&recipient, notification, &telebot.SendOptions{
+			ParseMode: telebot.ModeHTML, ThreadID: 0, DisableWebPagePreview: true}); err != nil {
+			slog.Error("failed to send notification", "error", err)
 		}
 		slog.Debug("notification sent")
 	}
