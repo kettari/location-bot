@@ -62,6 +62,11 @@ func (g *Game) BecomeJoinable(game *Game) bool {
 	return g.Date.After(time.Now()) && g.Joinable && g.SeatsFree > 0 && !game.Joinable
 }
 
+// WasJoinable returns true if game was joinable. Used for cancellation checks
+func (g *Game) WasJoinable() bool {
+	return g.Date.After(time.Now()) && g.SeatsTotal > 0
+}
+
 func (g *Game) FormatNew() string {
 	moscow, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {
