@@ -10,6 +10,5 @@ const (
 
 type subject interface {
 	Register(observer Observer)
-	UnRegister(observer Observer)
 	notifyAll(subject SubjectType)
 }
