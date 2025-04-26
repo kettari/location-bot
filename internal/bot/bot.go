@@ -33,15 +33,14 @@ func CreateBot(recipients string) (entity.MessageDispatcher, error) {
 	}
 	return &Bot{
 		bot:         b,
-		destination: prepareDestination(),
+		destination: prepareDestination(recipients),
 	}, nil
 }
 
 // prepareDestination parses configuration files and prepares array with [gopkg.in/telebot.v4.User]
-func prepareDestination() []Recipient {
+func prepareDestination(recipients string) []Recipient {
 	result := make([]Recipient, 0)
-	conf := config.GetConfig()
-	notificationChatIDs := strings.Split(conf.NotificationChatID, ";")
+	notificationChatIDs := strings.Split(recipients, ";")
 	for _, pair := range notificationChatIDs {
 		dst := strings.Split(pair, ",")
 		chatID, _ := strconv.ParseInt(dst[0], 10, 0)
