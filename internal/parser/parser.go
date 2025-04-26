@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/kettari/location-bot/internal/notifier"
+	"github.com/kettari/location-bot/internal/entity"
 	"github.com/kettari/location-bot/internal/scraper"
 )
 
@@ -15,13 +15,13 @@ func NewParser(engine Engine) *Parser {
 	}
 }
 
-func (p *Parser) Parse(pages *[]scraper.Page, schedule *notifier.Schedule) error {
+func (p *Parser) Parse(pages *[]scraper.Page, collection entity.Collection) error {
 	for _, page := range *pages {
 		games, err := p.engine.Process(&page)
 		if err != nil {
 			return err
 		}
-		schedule.Add(*games...)
+		collection.Add(*games...)
 	}
 	return nil
 }

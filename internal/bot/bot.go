@@ -2,15 +2,12 @@ package bot
 
 import (
 	"github.com/kettari/location-bot/internal/config"
+	"github.com/kettari/location-bot/internal/entity"
 	tele "gopkg.in/telebot.v4"
 	"log/slog"
 	"strconv"
 	"strings"
 )
-
-type MessageDispatcher interface {
-	Send([]string) error
-}
 
 type Bot struct {
 	bot         *tele.Bot
@@ -24,7 +21,7 @@ type Recipient struct {
 
 // CreateBot returns [MessageDispatcher] object to send notifications
 //   - recipients is a string "chat_id1,thread_id1;chat_id2,thread_id2"
-func CreateBot(recipients string) (MessageDispatcher, error) {
+func CreateBot(recipients string) (entity.MessageDispatcher, error) {
 	conf := config.GetConfig()
 	pref := tele.Settings{
 		Token: conf.BotToken,

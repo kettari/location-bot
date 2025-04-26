@@ -1,4 +1,4 @@
-package notifier
+package schedule
 
 import (
 	"errors"
@@ -154,7 +154,7 @@ func (s *Schedule) CheckAbsentGames() error {
 		return err
 	}
 	for k, _ := range storedGames {
-		storedGames[k].Register(CancelledGameObserver(b))
+		storedGames[k].Register(entity.CancelledGameObserver(b))
 	}
 	for _, sg := range storedGames {
 		found := false

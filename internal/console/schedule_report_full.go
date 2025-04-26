@@ -2,7 +2,7 @@ package console
 
 import (
 	"github.com/kettari/location-bot/internal/config"
-	"github.com/kettari/location-bot/internal/notifier"
+	"github.com/kettari/location-bot/internal/schedule"
 	"github.com/kettari/location-bot/internal/storage"
 	"log/slog"
 )
@@ -28,11 +28,10 @@ func (cmd *ScheduleReportFullCommand) Run() error {
 
 	conf := config.GetConfig()
 	manager := storage.NewManager(conf.DbConnectionString)
-	schedule := notifier.NewSchedule(manager)
-	if err := schedule.LoadJoinableEvents(); err != nil {
+	sch := schedule.NewSchedule(manager)
+	if err := sch.LoadJoinableEvents(); err != nil {
 		return err
 	}
-	report := notifier.NewReport(conf, schedule)
 
-	return report.ExecuteFullReport(conf.NotificationChatID)
+	return sch.ExecuteFullReport(conf.NotificationChatID)
 }
