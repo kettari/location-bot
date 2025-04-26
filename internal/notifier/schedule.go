@@ -3,10 +3,10 @@ package notifier
 import (
 	"errors"
 	"fmt"
+	"github.com/kettari/location-bot/internal/bot"
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/entity"
 	"github.com/kettari/location-bot/internal/storage"
-	tele "gopkg.in/telebot.v4"
 	"gorm.io/gorm"
 	"log/slog"
 	"strings"
@@ -128,21 +128,6 @@ func (s *Schedule) LoadUnnotifiedEvents() error {
 	return nil
 }
 
-// MarkAsNotified marks games unchanged and notified
-func (s *Schedule) MarkAsNotified() error {
-	if s.manager == nil {
-		return errors.New("manager not initialized")
-	}
-
-	for k, _ := range s.Games {
-		if err := s.manager.DB().Save(&s.Games[k]).Error; err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (s *Schedule) CheckAbsentGames() error {
 	if s.manager == nil {
 		return errors.New("manager not initialized")
@@ -162,12 +147,8 @@ func (s *Schedule) CheckAbsentGames() error {
 		return result.Error
 	}
 	// Register observers
-	slog.Debug("starting the bot")
 	conf := config.GetConfig()
-	pref := tele.Settings{
-		Token: conf.BotToken,
-	}
-	b, err := tele.NewBot(pref)
+	b, err := bot.CreateBot(conf.NotificationChatID)
 	if err != nil {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err

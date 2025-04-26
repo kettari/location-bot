@@ -88,6 +88,28 @@ func (g *Game) FormatNew() string {
 	return result
 }
 
+func (g *Game) FormatFreeSeatsAdded() string {
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		panic(err)
+	}
+
+	result := fmt.Sprintf("Освободилось место:\n\n<b>%s</b> (%s, %s)",
+		dow[g.Date.In(moscow).Format("Mon")],
+		g.Date.In(moscow).Format("02.01"),
+		g.Date.In(moscow).Format("15:04"))
+
+	result += fmt.Sprintf("\n%d/%d <a href=\"%s\">%s</a> [%s; %s]",
+		g.SeatsFree,
+		g.SeatsTotal,
+		g.URL,
+		g.Title,
+		g.System,
+		g.Setting)
+
+	return result
+}
+
 func (g *Game) FormatCancelled() string {
 	moscow, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {

@@ -2,12 +2,12 @@ package console
 
 import (
 	"fmt"
+	"github.com/kettari/location-bot/internal/bot"
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/notifier"
 	"github.com/kettari/location-bot/internal/parser"
 	"github.com/kettari/location-bot/internal/scraper"
 	"github.com/kettari/location-bot/internal/storage"
-	tele "gopkg.in/telebot.v4"
 	"log/slog"
 	"sync"
 	"time"
@@ -119,11 +119,7 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	slog.Debug("pages parsed to games", "games_count", len(schedule.Games))
 
 	// Register observers
-	slog.Debug("starting the bot")
-	pref := tele.Settings{
-		Token: conf.BotToken,
-	}
-	b, err := tele.NewBot(pref)
+	b, err := bot.CreateBot(conf.NotificationChatID)
 	if err != nil {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err

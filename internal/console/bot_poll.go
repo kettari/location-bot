@@ -3,7 +3,6 @@ package console
 import (
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/handler"
-	middle "github.com/kettari/location-bot/internal/middleware"
 	tele "gopkg.in/telebot.v4"
 	"log/slog"
 	"time"
@@ -40,8 +39,6 @@ func (cmd *BotPollCommand) Run() error {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err
 	}
-	// Add middleware
-	b.Use(middle.Logger(slog.Default()))
 
 	// List bot commands
 	b.Handle("/help", handler.NewHelpHandler())
