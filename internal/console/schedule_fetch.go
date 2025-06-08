@@ -92,8 +92,13 @@ func (cmd *ScheduleFetchCommand) Run() error {
 		urls = append(urls, rootURL+event.URL)
 	}
 	var pages []scraper.Page
-	cmd.dispatcher(urls, workersCount, &pages)
+	errorFlag := false
+	cmd.dispatcher(urls, workersCount, &pages, &errorFlag)
 	slog.Debug("collected events pages", "pages_count", len(pages))
+	if errorFlag {
+		slog.Warn("error flag was set, discarding results")
+		return nil
+	}
 
 	// Parsing pages
 	slog.Debug("parsing pages")
@@ -139,7 +144,7 @@ func (cmd *ScheduleFetchCommand) Run() error {
 }
 
 // see [https://rksurwase.medium.com/efficient-concurrency-in-go-a-deep-dive-into-the-worker-pool-pattern-for-batch-processing-73cac5a5bdca]
-func (cmd *ScheduleFetchCommand) dispatcher(urls []string, workerCount int, pages *[]scraper.Page) {
+func (cmd *ScheduleFetchCommand) dispatcher(urls []string, workerCount int, pages *[]scraper.Page, errorFlag *bool) {
 	jobs := make(chan Job, len(urls))
 	results := make(chan Result, len(urls))
 
@@ -154,7 +159,7 @@ func (cmd *ScheduleFetchCommand) dispatcher(urls []string, workerCount int, page
 	// Start collecting results
 	var resultsWg sync.WaitGroup
 	resultsWg.Add(1)
-	go cmd.collector(results, &resultsWg, pages)
+	go cmd.collector(results, &resultsWg, pages, errorFlag)
 
 	// Distribute jobs and wait for completion
 	for _, url := range urls {
@@ -186,7 +191,7 @@ func (cmd *ScheduleFetchCommand) worker(id int, jobs <-chan Job, results chan<- 
 	slog.Debug("scraping worker finished", "id", id)
 }
 
-func (cmd *ScheduleFetchCommand) collector(results <-chan Result, wg *sync.WaitGroup, pages *[]scraper.Page) {
+func (cmd *ScheduleFetchCommand) collector(results <-chan Result, wg *sync.WaitGroup, pages *[]scraper.Page, errorFlag *bool) {
 	slog.Debug("collecting results started")
 	defer wg.Done()
 	for result := range results {
@@ -195,6 +200,7 @@ func (cmd *ScheduleFetchCommand) collector(results <-chan Result, wg *sync.WaitG
 			*pages = append(*pages, scraper.Page{URL: result.url, Html: result.html})
 		} else {
 			slog.Error("collected error", "url", result.url, "err", result.err)
+			*errorFlag = true
 		}
 	}
 	slog.Debug("collecting results finished")
