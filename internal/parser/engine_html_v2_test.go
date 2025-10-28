@@ -19,6 +19,26 @@ func init() {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 }
 
+// loadHTMLFixture loads an HTML file from the webpage-examples directory
+func loadHTMLFixture(filename string) (string, error) {
+	// Get the absolute path to the project root
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	// Navigate to docs/webpage-examples
+	fixturePath := filepath.Join(wd, "..", "..", "docs", "webpage-examples", filename)
+
+	// Read the file
+	html, err := os.ReadFile(fixturePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read fixture %s: %w", filename, err)
+	}
+
+	return string(html), nil
+}
+
 func TestHtmlEngineV2_Process_RealExamples(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -30,39 +50,36 @@ func TestHtmlEngineV2_Process_RealExamples(t *testing.T) {
 	}{
 		{
 			name:      "Broken tales game page",
-			htmlFile:  "docs/webpage-examples/[Broken tales] Осколки Сказок – Ролекон.html",
+			htmlFile:  "[Broken tales] Осколки Сказок – Ролекон.html",
 			url:       "https://rolecon.ru/game/18601",
-			wantGames: 0, // Single game page, not an event page
+			wantGames: 1, // Single game page
 		},
 		{
 			name:      "D&D Мор game page",
-			htmlFile:  "docs/webpage-examples/D&D Мор – Ролекон.html",
+			htmlFile:  "D&D Мор – Ролекон.html",
 			url:       "https://rolecon.ru/game/18624",
-			wantGames: 0, // Single game page
+			wantGames: 1, // Single game page
 		},
 		{
 			name:      "Декагон game page",
-			htmlFile:  "docs/webpage-examples/Декагон – Ролекон.html",
+			htmlFile:  "Декагон – Ролекон.html",
 			url:       "https://rolecon.ru/game/18627",
-			wantGames: 0, // Single game page
+			wantGames: 1, // Single game page
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Read HTML file
-			htmlBytes, err := os.ReadFile(tt.htmlFile)
+			html, err := loadHTMLFixture(tt.htmlFile)
 			if err != nil {
-				if os.IsNotExist(err) {
-					t.Skipf("HTML file not found: %s", tt.htmlFile)
-					return
-				}
-				t.Fatalf("Failed to read HTML file: %v", err)
+				t.Skipf("HTML file not found: %s", tt.htmlFile)
+				return
 			}
 
 			page := &scraper.Page{
 				URL:  tt.url,
-				Html: string(htmlBytes),
+				Html: html,
 			}
 
 			engine := NewHtmlEngineV2()
@@ -73,15 +90,8 @@ func TestHtmlEngineV2_Process_RealExamples(t *testing.T) {
 				return
 			}
 
-			if tt.wantGames == 0 && games != nil && len(*games) == 0 {
-				// This is expected for single game pages
-				return
-			}
-
 			if games == nil {
-				if tt.wantGames != 0 {
-					t.Error("Process() returned nil, expected games")
-				}
+				t.Error("Process() returned nil, expected games")
 				return
 			}
 
@@ -657,46 +667,11 @@ func mustLoadMoscow() *time.Location {
 func TestHtmlEngineV2_ProcessWithEvents_RealHTMLExample(t *testing.T) {
 	// Test with actual HTML from "Охота: Война в тени" game page
 	// This page has date format "Пятница (19:00 - 23:00)" without specific date
-	html := `<!DOCTYPE html>
-<html lang="ru-RU">
-<body>
-    <div class="game-single" id="game18475">
-        <h4>Охота: Война в тени</h4>
-        <p class="subcaption-h4">
-            Пятница (19:00 - 23:00), ,
-19:00 - 23:00            </p>
-        <table class="table-single reverse">
-                    <tbody>
-                        <tr>
-                            <td>Сеттинг:</td>
-                            <td></td>
-                            <td>Авторский сеттинг</td>
-                        </tr>
-                        <tr>
-                            <td>Система:</td>
-                            <td></td>
-                            <td>Авторская система</td>
-                        </tr>
-                        <tr>
-                            <td>Жанр:</td>
-                            <td></td>
-                            <td>Фэнтези</td>
-                        </tr>
-                        <tr>
-                            <td>Игру проводит:</td>
-                            <td></td>
-                            <td><a href="https://rolecon.ru/user/34437">Sigfuss</a></td>
-                        </tr>
-                        <tr>
-                            <td>Места:</td>
-                            <td></td>
-                            <td>Осталось 4 мест из 4</td>
-                        </tr>
-                    </tbody>
-                </table>
-    </div>
-</body>
-</html>`
+	html, err := loadHTMLFixture("Охота_ Война в тени – Ролекон.html")
+	if err != nil {
+		t.Skipf("HTML file not found: %v", err)
+		return
+	}
 
 	event := scraper.RoleconEvent{
 		ID:    18475,
@@ -753,41 +728,11 @@ func TestHtmlEngineV2_ProcessWithEvents_RealHTMLExample(t *testing.T) {
 func TestHtmlEngineV2_ProcessWithEvents_PbtA_RealHTML(t *testing.T) {
 	// Test with actual HTML from "[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]" game page
 	// This page has date format "Пятница (19:00 - 23:00)" without specific date
-	html := `<!DOCTYPE html>
-<html lang="ru-RU">
-<body>
-    <div class="game-single">
-        <h4>[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]</h4>
-        <p class="subcaption-h4">
-            Пятница (19:00 - 23:00), ,
-19:00 - 23:00            </p>
-        <table class="table-single reverse">
-            <tbody>
-                <tr>
-                    <td>Сеттинг:</td>
-                    <td>Космические Рейнджеры</td>
-                </tr>
-                <tr>
-                    <td>Система:</td>
-                    <td>*W_Грань Вселенной: Третья редакция</td>
-                </tr>
-                <tr>
-                    <td>Жанр:</td>
-                    <td>Космоопера\Боевик\Триллер</td>
-                </tr>
-                <tr>
-                    <td>Игру проводит:</td>
-                    <td><a href="https://rolecon.ru/user/5116">Doc</a></td>
-                </tr>
-                <tr>
-                    <td>Места:</td>
-                    <td>Осталось 4 мест из 5</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</body>
-</html>`
+	html, err := loadHTMLFixture("[PbtA][ГВ3][КР1] Когда границы пройдены! [12+] – Ролекон.html")
+	if err != nil {
+		t.Skipf("HTML file not found: %v", err)
+		return
+	}
 
 	event := scraper.RoleconEvent{
 		ID:    18446,
@@ -1080,5 +1025,128 @@ func TestHtmlEngineV2_Process_AllExamples(t *testing.T) {
 					withTitle, withDate, withSeats, withMaster)
 			}
 		})
+	}
+}
+
+func TestHtmlEngineV2_ProcessWithEvents_SummaryPage_TimeFromEvent(t *testing.T) {
+	// Test that games from summary pages (multiple games) get time from tab-caption elements
+	// The HTML should have tab-caption elements with data-timeslot attributes
+	html := `<!DOCTYPE html>
+<html lang="ru-RU">
+<body>
+    <div class="event-day">
+        <div class="caption">Пятница (07.11) — 7.11.2025</div>
+        <div class="tabs-caption">
+            <div class="tab-caption active" data-timeslot="3361">Пятница (19:00 - 23:00) (2)</div>
+        </div>
+        <div class="tabs-result">
+            <div class="tab-result active">
+                <div class="event-single" id="game18475" data-timeslot="3361" data-day="1">
+                    <h4 class="game-title">
+                        <a href="https://rolecon.ru/game/18475">Охота: Война в тени</a>
+                    </h4>
+                    <table class="table-single">
+                        <tbody>
+                            <tr>
+                                <td>Сеттинг:</td>
+                                <td>Авторский сеттинг</td>
+                            </tr>
+                            <tr>
+                                <td>Система:</td>
+                                <td>Авторская система</td>
+                            </tr>
+                            <tr>
+                                <td>Жанр:</td>
+                                <td>Фэнтези</td>
+                            </tr>
+                            <tr>
+                                <td>Места:</td>
+                                <td>Осталось 4 мест из 4</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="event-single" id="game18446" data-timeslot="3361" data-day="1">
+                    <h4 class="game-title">
+                        <a href="https://rolecon.ru/game/18446">[PbtA] Тест</a>
+                    </h4>
+                    <table class="table-single">
+                        <tbody>
+                            <tr>
+                                <td>Сеттинг:</td>
+                                <td>Космос</td>
+                            </tr>
+                            <tr>
+                                <td>Система:</td>
+                                <td>PbtA</td>
+                            </tr>
+                            <tr>
+                                <td>Места:</td>
+                                <td>Осталось 2 мест из 5</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`
+
+	event := scraper.RoleconEvent{
+		ID:    3365,
+		Title: "Ролекон 2025",
+		URL:   "/rolecon2025",
+		Start: "2025-11-07T17:00:00+03:00", // This has wrong time (17:00), should use 19:00 from HTML
+		End:   "2025-11-07T23:00:00+03:00",
+	}
+
+	page := &scraper.Page{
+		URL:  "https://rolecon.ru/rolecon2025",
+		Html: html,
+	}
+
+	eventMap := map[string]scraper.RoleconEvent{
+		page.URL: event,
+	}
+
+	engine := NewHtmlEngineV2()
+	games, err := engine.ProcessWithEvents(page, eventMap)
+
+	if err != nil {
+		t.Fatalf("ProcessWithEvents() error = %v", err)
+	}
+
+	if games == nil || len(*games) != 2 {
+		t.Fatalf("ProcessWithEvents() returned %d games, want 2", len(*games))
+	}
+
+	// Both games should get time 19:00 from tab-caption HTML (not 17:00 from event.Start)
+	for _, game := range *games {
+		if game.Date.IsZero() {
+			t.Errorf("Game %s should have a date", game.ExternalID)
+			continue
+		}
+
+		// Check that the time is 19:00 (from HTML), not 17:00 (from event.Start)
+		expectedHour := 19
+		actualHour := game.Date.Hour()
+		if actualHour != expectedHour {
+			t.Errorf("Game %s time = %d:00, want %d:00 (should come from tab-caption HTML, not event.Start)",
+				game.ExternalID, actualHour, expectedHour)
+		}
+
+		// Check that the date is correct (date from event.Start, time from HTML)
+		expectedDate := time.Date(2025, 11, 7, 19, 0, 0, 0, mustLoadMoscow())
+		if !game.Date.Equal(expectedDate) {
+			t.Errorf("Game %s date = %v, want %v",
+				game.ExternalID, game.Date, expectedDate)
+		}
+
+		slog.Debug("Game processed with correct time",
+			"game_id", game.ExternalID,
+			"title", game.Title,
+			"date", game.Date,
+			"time", game.Date.Format("15:04"))
 	}
 }

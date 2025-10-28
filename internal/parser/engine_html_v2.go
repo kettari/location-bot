@@ -172,16 +172,24 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 		return
 	}
 
-	// Try to extract the start time from the HTML page (e.g., "19:00" from "Пятница (19:00 - 23:00)")
-	// Only do this for single game pages (not event summary pages with multiple games)
-	startHour, startMinute := 0, 0
+	// Try to extract the start time from the HTML page
+	var timeFromHTML map[int][2]int // maps slot number to [hour, minute]
+
 	if len(games) == 1 {
-		// Only single game pages should extract time from HTML
-		startHour, startMinute = he.extractTimeFromHTML(htmlContent)
+		// Single game pages: extract time from the page directly
+		hour, minute := he.extractTimeFromHTML(htmlContent)
+		if hour > 0 || minute > 0 {
+			timeFromHTML = map[int][2]int{
+				games[0].Slot: [2]int{hour, minute},
+			}
+		}
+	} else {
+		// Summary pages: extract times from tab-caption elements
+		timeFromHTML = he.extractTimesFromSummaryPage(htmlContent)
 	}
 
 	slog.Debug("extracted time from HTML",
-		"html_time", fmt.Sprintf("%02d:%02d", startHour, startMinute),
+		"time_map", timeFromHTML,
 		"games_count", len(games),
 		"event_start", event.Start,
 		"event_date", eventDate,
@@ -191,15 +199,23 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 	for k := range games {
 		if games[k].Date.IsZero() {
 			var finalDate time.Time
+			var timeHour, timeMinute int
+
+			// Check if we have a time for this game's slot
+			if slotTime, ok := timeFromHTML[games[k].Slot]; ok {
+				timeHour, timeMinute = slotTime[0], slotTime[1]
+			}
 
 			// If we successfully extracted time from HTML, use it with date from event metadata
 			// Otherwise use both date and time from event metadata
-			if startHour >= 0 && startMinute >= 0 {
+			if timeHour > 0 || timeMinute > 0 {
+				// Only use extracted time if it's actually set (not 00:00)
 				finalDate = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(),
-					startHour, startMinute, 0, 0, moscow)
+					timeHour, timeMinute, 0, 0, moscow)
 				slog.Debug("using time from HTML with date from event metadata",
 					"game_id", games[k].ExternalID,
-					"time_from_html", fmt.Sprintf("%02d:%02d", startHour, startMinute),
+					"slot", games[k].Slot,
+					"time_from_html", fmt.Sprintf("%02d:%02d", timeHour, timeMinute),
 					"event_date", eventDate,
 					"event_date_time", eventDate.Format("15:04"),
 					"final_date", finalDate,
@@ -209,6 +225,7 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 				finalDate = eventDate
 				slog.Debug("using both date and time from event metadata",
 					"game_id", games[k].ExternalID,
+					"slot", games[k].Slot,
 					"event_date_time", eventDate.Format("15:04"),
 					"final_date", finalDate,
 					"final_date_time", finalDate.Format("15:04"))
@@ -240,6 +257,63 @@ func (he *HtmlEngineV2) extractTimeFromHTML(htmlContent string) (hour int, minut
 	}
 
 	return hour, minute
+}
+
+// extractTimesFromSummaryPage extracts times from summary page tab-caption elements
+// Returns a map from timeslot number to [hour, minute]
+// Example: finds "Пятница (19:00 - 23:00)" in a tab-caption with data-timeslot="3361"
+func (he *HtmlEngineV2) extractTimesFromSummaryPage(htmlContent string) map[int][2]int {
+	result := make(map[int][2]int)
+
+	// Parse HTML
+	doc, err := html.Parse(strings.NewReader(htmlContent))
+	if err != nil {
+		slog.Debug("failed to parse HTML in extractTimesFromSummaryPage", "err", err)
+		return result
+	}
+
+	// Find all elements with class="tab-caption"
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			class := he.attrValue(n.Attr, "class")
+			if strings.Contains(class, "tab-caption") {
+				// Extract data-timeslot
+				timeslotStr := he.attrValue(n.Attr, "data-timeslot")
+				timeslot, err := strconv.Atoi(timeslotStr)
+				if err != nil {
+					slog.Debug("failed to parse timeslot", "timeslot", timeslotStr, "err", err)
+				} else {
+					// Extract text content
+					text := he.extractTextContentV2(n)
+
+					// Extract time from text (e.g., "Пятница (19:00 - 23:00)")
+					re := regexp.MustCompile(`\((\d{2}):(\d{2})\s*-\s*\d{2}:\d{2}\)`)
+					matches := re.FindStringSubmatch(text)
+
+					if len(matches) >= 3 {
+						if h, err := strconv.Atoi(matches[1]); err == nil {
+							if m, err := strconv.Atoi(matches[2]); err == nil {
+								result[timeslot] = [2]int{h, m}
+								slog.Debug("extracted time from tab-caption",
+									"timeslot", timeslot,
+									"text", text,
+									"hour", h,
+									"minute", m)
+							}
+						}
+					}
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			f(c)
+		}
+	}
+
+	f(doc)
+
+	return result
 }
 
 func (he *HtmlEngineV2) isDivEvent(n *html.Node) bool {
@@ -328,7 +402,21 @@ func (he *HtmlEngineV2) extractTitleV2(n *html.Node, game *entity.Game, baseURL 
 	}
 
 	// Handle h4 with direct text (single game pages)
+	// Skip if this h4 is inside event-xs or info divs (those are nested event info, not the game title)
 	if n.Type == html.ElementNode && n.Data == "h4" {
+		// Check parent to avoid nested event info
+		parent := n.Parent
+		for parent != nil {
+			if parent.Type == html.ElementNode {
+				parentClass := he.attrValue(parent.Attr, "class")
+				if parentClass == "event-xs" || parentClass == "info" {
+					// This h4 is inside event-xs or info, skip it
+					return
+				}
+			}
+			parent = parent.Parent
+		}
+
 		if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
 			// Text is directly in h4, not in an <a> tag
 			game.Title = strings.TrimSpace(n.FirstChild.Data)
@@ -605,11 +693,19 @@ func (he *HtmlEngineV2) isTabCaptionNode(n *html.Node) bool {
 }
 
 func (he *HtmlEngineV2) parseCaptionDate(n *html.Node, slots map[int]time.Time) {
+	dateText := ""
+	if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+		dateText = n.FirstChild.Data
+	}
+
 	r := regexp.MustCompile(`[\p{Cyrillic}]+\s—\s(\d{1,2})\.(\d{2})\.(\d{4})`)
-	matches := r.FindAllStringSubmatch(n.FirstChild.Data, -1)
+	matches := r.FindAllStringSubmatch(dateText, -1)
 	if len(matches) == 0 {
+		slog.Debug("parseCaptionDate: no matches found", "date_text", dateText, "pattern", r.String())
 		return
 	}
+
+	slog.Debug("parseCaptionDate: matches found", "date_text", dateText, "matches", matches)
 
 	moscow, err := time.LoadLocation("Europe/Moscow")
 	if err != nil {

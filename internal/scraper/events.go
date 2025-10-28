@@ -79,5 +79,15 @@ func (e *Events) UnmarshalEvents() error {
 		return fmt.Errorf("no events found after unmarshal")
 	}
 
+	// Log events for debugging
+	for _, event := range e.Events {
+		slog.Debug("unmarshaled event",
+			"id", event.ID,
+			"title", event.Title,
+			"url", event.URL,
+			"start", event.Start,
+			"end", event.End)
+	}
+
 	return nil
 }
