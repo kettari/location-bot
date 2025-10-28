@@ -253,7 +253,6 @@ func (s *Schedule) SaveGames() error {
 		if err := s.manager.DB().Save(&game).Error; err != nil {
 			return err
 		}
-		slog.Debug("game internals", "game", game)
 
 		// Select event
 		if freshGame && game.NewJoinable() {
