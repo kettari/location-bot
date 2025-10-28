@@ -16,9 +16,13 @@ type Events struct {
 }
 
 type RoleconEvent struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-	URL   string `json:"url"`
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	URL       string `json:"url"`
+	Start     string `json:"start"` // ISO date from calendar
+	End       string `json:"end"`   // ISO date from calendar
+	AllDay    bool   `json:"allDay"`
+	ClassName string `json:"className"` // CSS class for event type
 }
 
 func NewEvents(url string, csrf *Csrf) *Events {
@@ -42,7 +46,7 @@ func (e *Events) LoadEvents() error {
 	req.Header.Set("x-csrf-token", e.Csrf.Token)
 	req.Header.Set("x-requested-with", "XMLHttpRequest")
 
-    resp, err := httpClient().Do(req)
+	resp, err := httpClient().Do(req)
 	if err != nil {
 		return err
 	}

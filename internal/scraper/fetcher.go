@@ -22,6 +22,7 @@ type Fetcher struct {
 type FetchResult struct {
 	Pages    []Page
 	Events   []RoleconEvent
+	EventMap map[string]RoleconEvent // Maps URL to event metadata
 	TotalURL int
 }
 
@@ -67,10 +68,13 @@ func (f *Fetcher) FetchAll(fetchPages func([]string) ([]Page, error)) (*FetchRes
 	}
 	slog.Debug("events unmarshalled", "events_count", len(events.Events))
 
-	// Collect URLs for individual event pages
+	// Collect URLs for individual event pages and build URL->event mapping
 	var urls []string
+	eventMap := make(map[string]RoleconEvent)
 	for _, event := range events.Events {
-		urls = append(urls, f.rootURL+event.URL)
+		fullURL := f.rootURL + event.URL
+		urls = append(urls, fullURL)
+		eventMap[fullURL] = event
 	}
 
 	// Fetch individual pages using the provided function
@@ -84,7 +88,7 @@ func (f *Fetcher) FetchAll(fetchPages func([]string) ([]Page, error)) (*FetchRes
 	return &FetchResult{
 		Pages:    pages,
 		Events:   events.Events,
+		EventMap: eventMap,
 		TotalURL: len(urls),
 	}, nil
 }
-

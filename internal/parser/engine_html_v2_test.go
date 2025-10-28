@@ -654,6 +654,108 @@ func mustLoadMoscow() *time.Location {
 	return moscow
 }
 
+func TestHtmlEngineV2_ProcessWithEvents_DateFallback(t *testing.T) {
+	tests := []struct {
+		name        string
+		htmlContent string
+		event       scraper.RoleconEvent
+		expectDate  bool
+		wantDate    time.Time
+	}{
+		{
+			name: "date from event metadata when page has no date",
+			htmlContent: `
+			<html>
+			<body>
+				<div class="game-single" id="game18475">
+					<h4>Fallout. Однажды в Нью-Вегасе</h4>
+					<p class="subcaption-h4">Пятница (19:00 - 23:00), ,</p>
+					<table class="table-single reverse">
+						<tbody>
+							<tr><td>Сеттинг:</td><td></td><td>Постапокалипсис</td></tr>
+							<tr><td>Система:</td><td></td><td>Mothership RPG</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</body>
+			</html>`,
+			event: scraper.RoleconEvent{
+				ID:    18475,
+				Title: "Fallout. Однажды в Нью-Вегасе",
+				URL:   "/game/18475",
+				Start: "2025-10-17T19:00:00+03:00",
+				End:   "2025-10-17T23:00:00+03:00",
+			},
+			expectDate: true,
+			wantDate:   time.Date(2025, 10, 17, 19, 0, 0, 0, mustLoadMoscow()),
+		},
+		{
+			name: "page has date, don't use fallback",
+			htmlContent: `
+			<html>
+			<body>
+				<div class="game-single" id="game123">
+					<h4>Test Game</h4>
+					<p class="subcaption-h4">30 октября 2025, 19:00</p>
+					<table class="table-single reverse">
+						<tbody>
+							<tr><td>Сеттинг:</td><td></td><td>Fantasy</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</body>
+			</html>`,
+			event: scraper.RoleconEvent{
+				ID:    123,
+				Title: "Test Game",
+				URL:   "/game/123",
+				Start: "2025-11-01T10:00:00+03:00", // Different date
+			},
+			expectDate: true,
+			wantDate:   time.Date(2025, 10, 30, 19, 0, 0, 0, mustLoadMoscow()),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			page := &scraper.Page{
+				URL:  "https://rolecon.ru" + tt.event.URL,
+				Html: tt.htmlContent,
+			}
+
+			eventMap := map[string]scraper.RoleconEvent{
+				page.URL: tt.event,
+			}
+
+			engine := NewHtmlEngineV2()
+			games, err := engine.ProcessWithEvents(page, eventMap)
+
+			if err != nil {
+				t.Fatalf("ProcessWithEvents() error = %v", err)
+			}
+
+			if games == nil || len(*games) != 1 {
+				t.Fatalf("ProcessWithEvents() returned %d games, want 1", len(*games))
+			}
+
+			game := (*games)[0]
+
+			if tt.expectDate {
+				if game.Date.IsZero() {
+					t.Error("Date should be set, but it's zero")
+				}
+				if !game.Date.Equal(tt.wantDate) {
+					t.Errorf("Date = %v, want %v", game.Date, tt.wantDate)
+				}
+			} else {
+				if !game.Date.IsZero() {
+					t.Errorf("Date should be zero, but got %v", game.Date)
+				}
+			}
+		})
+	}
+}
+
 // Test all HTML example files in the webpage-examples directory
 func TestHtmlEngineV2_Process_AllExamples(t *testing.T) {
 	exampleDir := "docs/webpage-examples"

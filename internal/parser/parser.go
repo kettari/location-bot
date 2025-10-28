@@ -26,6 +26,17 @@ func (p *Parser) Parse(pages *[]scraper.Page, collection entity.Collection) erro
 	return nil
 }
 
+func (p *Parser) ParseWithEvents(result *scraper.FetchResult, collection entity.Collection) error {
+	for _, page := range result.Pages {
+		games, err := p.engine.ProcessWithEvents(&page, result.EventMap)
+		if err != nil {
+			return err
+		}
+		collection.Add(*games...)
+	}
+	return nil
+}
+
 func (p *Parser) ParseSinglePage(page *scraper.Page) (*[]entity.Game, error) {
 	return p.engine.Process(page)
 }

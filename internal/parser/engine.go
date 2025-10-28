@@ -7,4 +7,5 @@ import (
 
 type Engine interface {
 	Process(*scraper.Page) (*[]entity.Game, error)
+	ProcessWithEvents(*scraper.Page, map[string]scraper.RoleconEvent) (*[]entity.Game, error)
 }

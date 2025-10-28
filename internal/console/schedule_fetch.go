@@ -77,9 +77,9 @@ func (cmd *ScheduleFetchCommand) Run() error {
 		sch = schedule.NewSchedule(nil)
 	}
 
-	// Parse pages
+	// Parse pages with event metadata
 	prsr := parser.NewParser(parser.NewHtmlEngineV2())
-	err = prsr.Parse(&result.Pages, sch)
+	err = prsr.ParseWithEvents(result, sch)
 	if err != nil {
 		return err
 	}

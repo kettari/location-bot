@@ -48,6 +48,11 @@ func NewHtmlEngineV2() *HtmlEngineV2 {
 
 // Process parses HTML page and extracts game information into entity.Game structs
 func (he *HtmlEngineV2) Process(page *scraper.Page) (*[]entity.Game, error) {
+	return he.ProcessWithEvents(page, nil)
+}
+
+// ProcessWithEvents parses HTML page with optional event metadata for date fallback
+func (he *HtmlEngineV2) ProcessWithEvents(page *scraper.Page, eventMap map[string]scraper.RoleconEvent) (*[]entity.Game, error) {
 	doc, err := html.Parse(strings.NewReader(page.Html))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
@@ -55,6 +60,14 @@ func (he *HtmlEngineV2) Process(page *scraper.Page) (*[]entity.Game, error) {
 
 	games, slots := he.extractGamesFromPage(doc, page)
 	he.assignDatesFromSlots(games, slots)
+
+	// If page parsing didn't find dates, try to use event metadata
+	if eventMap != nil {
+		if event, ok := eventMap[page.URL]; ok {
+			he.fallbackToEventDates(games, event)
+		}
+	}
+
 	he.setJoinableFlags(games)
 
 	slog.Debug("page processed", "page_url", page.URL, "games_count", len(games))
@@ -116,6 +129,46 @@ func (he *HtmlEngineV2) setJoinableFlags(games []entity.Game) {
 	for k := range games {
 		games[k].Joinable = games[k].Date.After(time.Now()) &&
 			games[k].SeatsTotal > 0 && games[k].SeatsFree > 0
+	}
+}
+
+// fallbackToEventDates sets dates from event metadata if game date is not set
+func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.RoleconEvent) {
+	if event.Start == "" {
+		return
+	}
+
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		slog.Warn("failed to load Moscow timezone", "err", err)
+		return
+	}
+
+	// Parse ISO date from event
+	eventDate, err := time.Parse("2006-01-02T15:04:05-07:00", event.Start)
+	if err != nil {
+		// Try alternative format
+		eventDate, err = time.Parse("2006-01-02T15:04:05", event.Start)
+		if err != nil {
+			eventDate, err = time.Parse("2006-01-02", event.Start)
+			if err != nil {
+				slog.Debug("failed to parse event date", "start", event.Start, "err", err)
+				return
+			}
+		}
+	}
+
+	// Set timezone to Moscow
+	eventDate = eventDate.In(moscow)
+
+	// Set dates for games that don't have them
+	for k := range games {
+		if games[k].Date.IsZero() {
+			games[k].Date = eventDate
+			slog.Debug("using fallback date from event metadata",
+				"game_id", games[k].ExternalID,
+				"event_date", eventDate)
+		}
 	}
 }
 
