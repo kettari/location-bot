@@ -1,14 +1,15 @@
 package parser
 
 import (
-	"github.com/kettari/location-bot/internal/entity"
-	"github.com/kettari/location-bot/internal/scraper"
-	"golang.org/x/net/html"
 	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kettari/location-bot/internal/entity"
+	"github.com/kettari/location-bot/internal/scraper"
+	"golang.org/x/net/html"
 )
 
 type HtmlEngine struct{}
@@ -327,7 +328,11 @@ func (he *HtmlEngine) parseWeekendDateNode(n *html.Node, slots *dateSlots) {
 			}
 			rootDate, ok := (*slots)[0]
 			if !ok {
-				panic("root date not set")
+				slog.Warn("root date not set for slot, skipping", "slot", slotNumber)
+				if n.NextSibling != nil {
+					he.parseWeekendDateNode(n.NextSibling, slots)
+				}
+				return
 			}
 			hour, _ := strconv.Atoi(matches[0][1])
 			minute, _ := strconv.Atoi(matches[0][2])
