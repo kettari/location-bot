@@ -1,9 +1,10 @@
 package scraper
 
 import (
-	"io"
-	"log/slog"
-	"net/http"
+    "fmt"
+    "io"
+    "log/slog"
+    "net/http"
 )
 
 type Page struct {
@@ -22,7 +23,7 @@ func (p *Page) LoadHtml() error {
 		return err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+    resp, err := httpClient().Do(req)
 	if err != nil {
 		return err
 	}
@@ -32,6 +33,10 @@ func (p *Page) LoadHtml() error {
 			slog.Error("failed to close response body", "url", p.URL, "err", err)
 		}
 	}(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received non-OK status code: %d", resp.StatusCode)
+	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {

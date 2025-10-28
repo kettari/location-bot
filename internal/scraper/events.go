@@ -42,7 +42,7 @@ func (e *Events) LoadEvents() error {
 	req.Header.Set("x-csrf-token", e.Csrf.Token)
 	req.Header.Set("x-requested-with", "XMLHttpRequest")
 
-	resp, err := http.DefaultClient.Do(req)
+    resp, err := httpClient().Do(req)
 	if err != nil {
 		return err
 	}

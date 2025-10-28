@@ -51,53 +51,20 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	slog.Info("fetching schedule")
 	conf := config.GetConfig()
 
-	// Get the root page
-	slog.Debug("requesting page", "url", rootURL)
-	page := scraper.NewPage(rootURL)
-	if err := page.LoadHtml(); err != nil {
+	// Use fetcher service to orchestrate CSRF and events collection
+	fetcher := scraper.NewFetcher()
+	result, err := fetcher.FetchAll(func(urls []string) ([]scraper.Page, error) {
+		var pages []scraper.Page
+		errorFlag := false
+		cmd.dispatcher(urls, workersCount, &pages, &errorFlag)
+		if errorFlag {
+			slog.Warn("error flag was set, discarding results")
+			return nil, fmt.Errorf("failed to fetch some pages")
+		}
+		return pages, nil
+	})
+	if err != nil {
 		return err
-	}
-	slog.Debug("initial page loaded", "size", len(page.Html), "cookies_count", len(page.Cookies))
-
-	// Extract Csrf token and cookie
-	csrf := scraper.NewCsrf(page)
-	var err error
-	if err = csrf.ExtractCsrfToken(); err != nil {
-		return err
-	}
-	slog.Debug("found CSRF token", "token", csrf.Token)
-	if err = csrf.ExtractCsrfCookie(); err != nil {
-		return err
-	}
-	slog.Debug("found CSRF cookie", "cookie", csrf.Cookie)
-
-	// Load events JSON
-	url := fmt.Sprintf(eventsURL, time.Now().Format("2006-01-02"), time.Now().Add(twoWeeks).Format("2006-01-02"))
-	slog.Debug("requesting events", "url", url)
-	events := scraper.NewEvents(url, csrf)
-	if err = events.LoadEvents(); err != nil {
-		return err
-	}
-	slog.Debug("events page loaded", "size", len(events.JSON))
-	slog.Debug("unmarshalling events")
-	if err = events.UnmarshalEvents(); err != nil {
-		return err
-	}
-	slog.Debug("events unmarshalled", "events_count", len(events.Events))
-
-	// Load individual events pages
-	slog.Debug("requesting events pages")
-	var urls []string
-	for _, event := range events.Events {
-		urls = append(urls, rootURL+event.URL)
-	}
-	var pages []scraper.Page
-	errorFlag := false
-	cmd.dispatcher(urls, workersCount, &pages, &errorFlag)
-	slog.Debug("collected events pages", "pages_count", len(pages))
-	if errorFlag {
-		slog.Warn("error flag was set, discarding results")
-		return nil
 	}
 
 	// Parsing pages
@@ -108,7 +75,7 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	}
 	sch := schedule.NewSchedule(manager)
 	prsr := parser.NewParser(parser.NewHtmlEngine())
-	err = prsr.Parse(&pages, sch)
+	err = prsr.Parse(&result.Pages, sch)
 	if err != nil {
 		return err
 	}
@@ -179,8 +146,7 @@ func (cmd *ScheduleFetchCommand) worker(id int, jobs <-chan Job, results chan<- 
 	for job := range jobs {
 		slog.Debug("worker started processing url", "worker_id", id, "url", job.url)
 		pageScraper := scraper.NewPage(job.url)
-		var err error
-		err = pageScraper.LoadHtml()
+		err := pageScraper.LoadHtml()
 		if err != nil {
 			results <- Result{url: job.url, html: "", err: fmt.Errorf("job url %s (worker %d) failed to scrape page: %w", job.url, id, err)}
 		} else {
