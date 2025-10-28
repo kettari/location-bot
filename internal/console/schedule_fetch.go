@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 
 	"github.com/kettari/location-bot/internal/bot"
 	"github.com/kettari/location-bot/internal/config"
@@ -16,9 +15,6 @@ import (
 )
 
 const (
-	rootURL      = "https://rolecon.ru"
-	eventsURL    = "https://rolecon.ru/event/json-calendar?start=%s&end=%s"
-	twoWeeks     = 24 * time.Hour * 14
 	workersCount = 5
 )
 

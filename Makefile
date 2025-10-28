@@ -3,9 +3,11 @@
 ifdef OS
 # Windows build
 GOCMD=go
+EXT=.exe
 else
 # Unix build
 GOCMD=/usr/local/go/bin/go
+EXT=
 endif
 
 # Go parameters
@@ -26,13 +28,11 @@ BUILD_VERSION := $(shell git describe --tags --always --dirty)
 
 .PHONY: commit build deploy
 
-commit:
-	git add .
-	git commit -m "WIP"
-	git push
-
-# build:
-#	$(GOBUILD) -o $(BINARY_PATH)$(BINARY_NAME) -v $(PROJECT_NAME)/cmd/$(PROJECT_CMD)
+compile:
+	@echo "Building $(PROJECT_CMD)..."
+	@if not exist bin mkdir bin
+	go build -o bin/$(PROJECT_CMD)$(EXT) cmd/$(PROJECT_CMD)/main.go
+	@echo "Binary built: bin/$(PROJECT_CMD)$(EXT)"
 
 build:
 	@echo ">> building docker container $(PROJECT_CMD)"
