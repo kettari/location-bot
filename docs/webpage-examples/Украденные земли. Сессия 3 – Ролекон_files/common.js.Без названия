@@ -1,0 +1,451 @@
+function redirectMe(url, delay) {
+    if (!delay) {
+        location.href = url;
+        return;
+    }
+    setTimeout(function() { location.href = url }, delay);
+}
+
+function showModal(name, src) {
+    $('.modalwindow').fadeOut();
+    var modal = $('#' + name);
+    if (!modal.length) {
+        if (!src) {
+            return;
+        }
+        modal = $('<div id="' + name + '"></div>').addClass('modalwindow').load(src);
+        $('body').append(modal);
+    }
+
+    if (modal.height() < $(window).height()) {
+        modal.css({"top": ($(window).scrollTop() + ($(window).height() / 2) - (parseInt(modal.height()) / 2)) + "px"});
+    } else {
+        modal.css({"top": ($(window).scrollTop() + 100) + "px"});
+    }
+
+    modal.fadeIn(100);
+
+    $('#mask').fadeIn(100);
+}
+
+function scrollToElement(selector) {
+    $('html, body').animate({scrollTop: $(selector).offset().top - 20}, 600);
+}
+
+function showTimeslot(timeslot, section, slideParams) {
+    if (slideParams === undefined) {
+        slideParams = {};
+    }
+    var slideParams = {duration: 0, queue: false};
+    $('.tab-caption[data-section="' + section + '"].active').removeClass('active');
+    $('.tab-result[data-section="' + section + '"].active').removeClass('active').slideUp(slideParams);
+    $('.tab-caption[data-timeslot="' + timeslot + '"]').addClass('active');
+    $('.tab-result[data-timeslot="' + timeslot + '"]').slideDown(slideParams).addClass('active');
+}
+
+function showGame(elemId) {
+    var gameWr = $('#' + elemId);
+    var slideParams = {duration: 0, queue: false};
+    showTimeslot(gameWr.attr('data-timeslot'), gameWr.attr('data-section'), slideParams);
+    gameWr.addClass('active');
+    gameWr.find('.event-single-content').slideDown(slideParams);
+    scrollToElement('#' + elemId);
+}
+
+$(document).ready(function() {
+
+    $.widget("custom.selectmenu", $.ui.selectmenu, {
+        _resizeMenu: function() {
+            this.menu.outerWidth(Math.max(
+                this.button.outerWidth(),
+
+                // support: IE10
+                // IE10 wraps long text (possibly a rounding bug)
+                // so we add 1px to avoid the wrapping
+                this.menu.width( "" ).outerWidth() + 1 // - 55
+            ) - 18);
+        },
+    });
+
+    $.widget( "custom.combobox", {
+        _create: function() {
+            this.wrapper = $( "<span>" )
+                .addClass( "custom-combobox" )
+                .insertAfter( this.element );
+
+            this.element.hide();
+            this._createAutocomplete();
+            this._createShowAllButton();
+        },
+
+        _createAutocomplete: function() {
+            var selected = this.element.children( ":selected" ),
+                value = selected.val() ? selected.text() : "";
+
+            this.input = $( "<input>" )
+                .appendTo( this.wrapper )
+                .val( value )
+                .attr( "title", "" )
+                .attr( "placeholder", this.element.attr('data-placeholder') )
+                .attr( "data-type", this.element.attr('data-type') )
+                .addClass( "custom-combobox-input ui-widget ui-widget-content ui-state-default" )
+                .autocomplete({
+                    delay: 0,
+                    minLength: 0,
+                    open: function(event, ui) {
+                        $('ul.ui-autocomplete:visible').addClass('ui-corner-all').css('top', '+=10');
+                    },
+                    source: $.proxy( this, "_source" )
+                })
+                .tooltip({
+                    tooltipClass: "ui-state-highlight"
+                });
+
+            this._on( this.input, {
+                autocompleteselect: function( event, ui ) {
+                    var type = $(ui.item.option).parent().attr('data-type');
+                    var attrform = $('#newattr-wr .new-gameattr[data-type="' + type + '"]');
+                    if (ui.item.option.value == -1) {
+                        if (!attrform.length) {
+                            $.get('/event/create-gameattr', {type: type}, function(response) {
+                                $('#newattr-wr').append(response);
+                            });
+                        }
+                    } else {
+                        if (attrform.length) {
+                            attrform.remove();
+                        }
+                    }
+                    ui.item.option.selected = true;
+                    this._trigger( "select", event, {
+                        item: ui.item.option
+                    });
+                },
+
+                keyup: function() {
+                    if (!$(this.input).val()) {
+                        if (this.element.children('option[value=""]').length) {
+                            this.element.val('');
+                        } else if (this.element.children('option[value=0]').length) {
+                            this.element.val(0);
+                        }
+                    }
+                },
+
+                autocompletechange: "_removeIfInvalid"
+            });
+        },
+
+        _createShowAllButton: function() {
+            var input = this.input,
+                wasOpen = false;
+
+            $( "<a>" )
+                .attr( "tabIndex", -1 )
+                .attr( "title", "Показать варианты" )
+                .tooltip()
+                .appendTo( this.wrapper )
+                .addClass( "custom-combobox-toggle ui-icon ui-selectmenu-icon" )
+                .mousedown(function() {
+                    wasOpen = input.autocomplete( "widget" ).is( ":visible" );
+                })
+                .click(function() {
+                    input.focus();
+
+                    // Close if already visible
+                    if ( wasOpen ) {
+                        return;
+                    }
+
+                    // Pass empty string as value to search for, displaying all results
+                    input.autocomplete( "search", "" );
+                });
+        },
+
+        _source: function( request, response ) {
+            var matcher = new RegExp( $.ui.autocomplete.escapeRegex(request.term), "i" );
+            var currOptions = this.element.children( "option" ).map(function() {
+                var text = $(this).text();
+                if (this.value && (!request.term || matcher.test(text))) {
+                    return {
+                        label: text,
+                        value: text,
+                        option: this
+                    };
+                }
+            });
+            if (this.element.data('suggest-pending') && !currOptions.length && $.trim(request.term).length >= 2 || currOptions.length && $.trim(request.term).length >= 5) {
+                var thisElement = this.element;
+                $.getJSON('/event/suggest-pending-gameattrs', {term: request.term, type: thisElement.data('type')}, function(r){
+            		$.each(r, function(index, item) {
+            			$createdOpt = $('<option value="' + index + '">' + item + '</option>');
+            			thisElement.children('option').last().before($createdOpt);
+            			currOptions.push({
+            				label: item,
+            				value: item,
+            				option: $createdOpt
+            			});
+            		});
+            	});
+            }
+            response(currOptions);
+        },
+
+        _removeIfInvalid: function( event, ui ) {
+
+            // Selected an item, nothing to do
+            if ( ui.item ) {
+                return;
+            }
+
+            // Search for a match (case-insensitive)
+            var value = this.input.val(),
+                valueLowerCase = value.toLowerCase(),
+                valid = false;
+            if (!value) {
+                if (this.element.children('option[value=""]').length) {
+                    this.element.children('option[value=""]').selected = true;
+                    return;
+                }
+                if (this.element.children('option[value=0]').length) {
+                    this.element.children('option[value=0]').selected = true;
+                    return;
+                }
+            }
+            this.element.children( "option" ).each(function() {
+                if ( $( this ).text().toLowerCase() === valueLowerCase ) {
+                    this.selected = valid = true;
+                    return false;
+                }
+            });
+
+            // Found a match, nothing to do
+            if ( valid ) {
+                return;
+            }
+
+            // Remove invalid value
+            this.input
+                .val( "" )
+                .attr( "title", "В системе не найдено варианта \"" + value + "\"" )
+                .tooltip( "open" );
+            this.element.val( "" );
+            this._delay(function() {
+                this.input.tooltip( "close" ).attr( "title", "" );
+            }, 2500 );
+            this.input.autocomplete( "instance" ).term = "";
+        },
+
+        _destroy: function() {
+            this.wrapper.remove();
+            this.element.show();
+        },
+
+        refresh: function() {
+            this._destroy();
+            this._create();
+        },
+    });
+
+    /* Comments */
+
+    // comment blog
+
+    $('#comment-container').delegate('.comment', 'click', function() {
+        $('html, body').animate({scrollTop: $('.comments').offset().top}, 1000);
+    });
+
+    // comments close
+
+    $('body').bind('click', function() {
+        $('.answer').each(function() {
+            if ($(this).hasClass('active')) {
+                $('.need-answer').hide();
+                $(this).removeClass('active').show();
+            }
+        });
+    });
+
+    $('body').on('click', '.need-answer, .answer', function(e) {
+        e.stopPropagation();
+    });
+
+    // comments show
+
+    $('#comment-container').delegate('.answer', 'click', function() {
+        var parent = $(this).parents('.comment-block-inner');
+        $('.answer').show();
+        $(this).hide().addClass('active');
+        $('.need-answer input[name="Comment[parent_id]"]').val($(this).closest('.comment-block').attr('data-id'));
+        $('.need-answer').appendTo(parent).show();
+    });
+
+    $('#comment-container').delegate('#commentform, #answerform', 'beforeSubmit', function(){
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: $(this).serialize() + '&submit=1',
+            success: function (response) {
+                $('#comment-container').html(response);
+            },
+        });
+        return false;
+    });
+
+    /* AJAX Events Loading */
+
+    // ajax events
+
+    $('#more-events-btn').on('click', function (e) {
+        e.preventDefault();
+
+        var $this = $(this);
+        if ($this.hasClass('js-disabled')) {
+            return;
+        }
+
+        $this.addClass('js-disabled').text('Загрузка...');
+        $.ajax({
+            url: '/event',
+            type: 'GET',
+            data: {page: $(this).attr('data-page')},
+            dataType: 'json',
+            success: function (response) {
+                $this.removeClass('js-disabled').text('Показать ещё');
+                if (response.events) {
+                    $('#event-pool').append(response.events);
+                    $('html, body').animate({
+                        scrollTop: $('#event-pool .event[data-page="' + response.page + '"]:first').offset().top
+                    }, 1000);
+                    if (response.page == response.total) {
+                        $this.remove();
+                    } else {
+                        $this.attr('data-page', response.page + 1);
+                    }
+                } else {
+                    $this.remove();
+                }
+            },
+            error: function (response) {
+                $this.removeClass('js-disabled').text('Показать ещё');
+            },
+        });
+    });
+
+    // select
+
+    $('select.selectmenu').selectmenu();
+    $('select.combobox').combobox();
+
+    // window height
+
+    var height = $('.header').height() + $('.footer').height() + $('.wrapper').height() + 50;
+    if (height < $(window).height()) {
+        $('.wrapper').css('min-height', ($(window).height() - $('.header').height() - $('.footer').height() - 50));
+    }
+
+
+    $('.tab-caption').bind('click', function() {
+        if ($(this).hasClass('active')) return false;
+        $(this).parents('.event-day').find('.tab-caption.active').removeClass('active');
+        $(this).parents('.event-day').find('.tab-result.active').removeClass('active').slideUp();
+        var index = $(this).parents('.event-day').find('.tab-caption').index($(this));
+
+        $(this).parents('.event-day').find('.tab-result').eq(index).slideDown().addClass('active');
+        $(this).addClass('active');
+    });
+
+    $('.js-game-wrapper').delegate('.js-game-title', 'click', function(e){
+        e.preventDefault();
+        $(this).parents('.event-single').toggleClass('active');
+        $(this).parents('.event-single').find('.event-single-content').slideToggle();
+    });
+
+    // modals
+
+    $('[data-window]').click(function(e) {
+        e.preventDefault();
+        showModal($(this).attr('data-window'), $(this).attr('data-src'));
+    });
+
+    $('input').keyup(function() {
+        $(this).removeClass('red');
+    });
+
+    $('.close, #mask, .js-modal-close').click(function (e) {
+        $('#mask').hide();
+        $('.modalwindow').hide();
+    });
+
+    // file upload
+    var wrapper = $( ".file_upload" ),
+        inp = wrapper.find( "input" ),
+        btn = wrapper.find( "button" ),
+        lbl = wrapper.find( "div" );
+    btn.focus(function(){
+        inp.focus()
+    });
+    // Crutches for the :focus style:
+    inp.focus(function(){
+        wrapper.addClass( "focus" );
+    }).blur(function(){
+        wrapper.removeClass( "focus" );
+    });
+
+
+    // send
+
+    $('.send').bind('click', function(e) {
+
+        var form = $(this).parents('form');
+
+        $(form).find('input').each(function() {
+            if ($(this).hasClass('validate')) {
+                if ($(this).val() == "") {
+                    $(this).addClass('red');
+                    e.preventDefault();
+                }
+            }
+        });
+
+    });
+
+/*
+    if (location.hash && location.hash.indexOf('game') === 1) {
+        var gameId = location.hash.substr(1);
+        if ($('#' + gameId).length) {
+            showGame(gameId);
+        }
+    }
+*/
+
+    $('.cyclicbanner').each(function(index) {
+        var el = $(this);
+        setInterval(function() {
+            var active = el.find('.active');
+            active.fadeOut(400, function() {
+                active.removeClass('active');
+                var next = active.next();
+                if (next.length == 0) {
+                    next = el.children().first();
+                }
+                next.addClass('active');
+                next.fadeIn(400);
+            });
+        }, 5000);
+    });
+    $('#collapse-menu').click(function(event) {
+        event.preventDefault();
+        $('#menu nav').show();
+        $('body').css({'overflow': 'hidden'});
+    });
+    $('#exit-menu').click(function(event) {
+        event.preventDefault();
+        $('#menu nav').hide();
+        $('body').css({'overflow': ''});
+    });
+});
+
+function setReturnUrl($url) {
+    $('input[name="returnUrl"]').val($url);
+}

@@ -1,0 +1,123 @@
+"use strict"
+$(document).ready(function(){
+    $('#newattr-wr').delegate('form', 'submit', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        var form = $(this);
+        var button = form.find('button[type="submit"]');
+        var wrapper = form.closest('.new-gameattr');
+        var type = wrapper.attr('data-type');
+        button.prop('disabled', 'disabled');
+        button.prop('value', 'Отправка...');
+        $.ajax({
+            dataType: 'json',
+            method: 'POST',
+            enctype: 'multipart/form-data',
+            url: form.prop('action'),
+            data: form.serialize() + '&store=true',
+            success: function(result) {
+                if (result.status != 'error') {
+                    wrapper.fadeOut(300, function() { $(this).remove(); });
+                    $createdOpt = $('<option value="' + result.response.id + '" selected>' + result.response.title + '</option>');
+                    $('select.combobox[data-type="' + type + '"]').children('option[value=-1]').remove();
+                    $('select.combobox[data-type="' + type + '"]').append($createdOpt);
+                    $('select.combobox[data-type="' + type + '"]').combobox('refresh');
+                } else {
+                    form.yiiActiveForm('updateMessages', result.response);
+                    button.prop('disabled', false);
+                }
+            }
+        });
+    });
+
+    $('.sel-gametype').change(function () {
+        document.getElementById('game-places').disabled = (this.value == 'disabled');
+    });
+    $('[data-disables]').change(function () {
+        this.form.elements[this.attributes['data-disables'].value].disabled = (this.value == 'disabled');
+    });
+    $('.sel-gametype').on("selectmenuchange", function () {
+        $('#game-places').data('customSelectmenu').option('disabled', (this.value == 'disabled'));
+    });
+
+    $('#gameform,#boardgameform').on('afterValidateAttribute', function (event, attribute, message) {
+        if (attribute.name === 'image_src') {
+            var elem = $('#' + attribute.id).closest('.upload-elems').find('img');
+            elem.attr('src', message.length ? '/images/load-img-error.png' : '/images/load-img.png');
+        }
+    });
+
+    $('#gameupdateform').on('afterValidateAttribute', function (event, attribute, message) {
+        if (attribute.name === 'image_src') {
+            var elem = $('#' + attribute.id).closest('.upload-elems').find('img');
+            elem.attr('src', message.length ? '/images/change-img-error.png' : '/images/change-img.png');
+        }
+    });
+
+/*
+    $('#gameform').on('beforeSubmit', function(){
+        var form = $(this);
+        // need FormData()
+        $.ajax({
+            url: form.attr('action'),
+            type: "POST",
+            processData: false,
+            contentType: false,
+            dataType: "json",
+            data: form.serialize() + '&submit=1',
+            success: function(response) {
+                if (response.status == 'success') {
+                    console.log('Success.');
+                } else if (response.result) {
+                    form.yiiActiveForm('updateMessages', response.result);
+                }
+            },
+            error: function(response) {
+                if (response.result) {
+                    form.yiiActiveForm('updateMessages', response.result);
+                }
+            }
+        });
+        return false;
+    });
+*/
+});
+$(window).on('load', function() {
+    function preview(text, el) {
+        $.ajax({
+            url: '/site/parsedown',
+            type: 'POST',
+            dataType: 'html',
+            data: text,
+            error: function () {
+                el.innerHTML = "cannot render Markdown"
+            },
+            success: function(result) {
+                el.innerHTML = result
+            }
+        })
+        return "Подождите, идёт загрузка"
+    }
+    $('.simple-mde').each(function() {
+        new EasyMDE({ element: this,
+            previewRender: preview,
+            forceSync: true,
+            spellChecker: false })
+    })
+    new EasyMDE({ element: $('#game-description')[0],
+        previewRender: preview,
+        forceSync: true,
+        // autosave: {
+        //     enabled: true,
+        //     uniqueId: location.href + '-description'
+        // },
+        spellChecker: false })
+    new EasyMDE({ element: $('#game-notes')[0],
+        previewRender: preview,
+        forceSync: true,
+        // autosave: {
+        //     enabled: true,
+        //     uniqueId: location.href + '-notes'
+        // },
+        spellChecker: false })
+});

@@ -130,11 +130,16 @@ func (s *Schedule) LoadUnnotifiedEvents() error {
 }
 
 func (s *Schedule) CheckAbsentGames() error {
+	conf := config.GetConfig()
+
+	if conf.DryRun && s.manager == nil {
+		slog.Info("DRY RUN MODE: skipping check for absent games")
+		return nil
+	}
+
 	if s.manager == nil {
 		return errors.New("manager not initialized")
 	}
-
-	conf := config.GetConfig()
 
 	// Check for absent games
 	var storedGames []entity.Game
@@ -190,13 +195,20 @@ func (s *Schedule) CheckAbsentGames() error {
 }
 
 func (s *Schedule) SaveGames() error {
-	if s.manager == nil {
-		return errors.New("manager not initialized")
-	}
-
 	conf := config.GetConfig()
 	if conf.DryRun {
 		slog.Info("DRY RUN MODE: skipping database saves")
+		if s.manager == nil {
+			// DryRun mode without DB - just simulate events
+			for _, game := range s.Games {
+				if game.NewJoinable() {
+					game.OnNew()
+				} else if game.SeatsFree > 0 {
+					game.OnBecomeJoinable()
+				}
+			}
+			return nil
+		}
 		// Still trigger observers for logging, but they won't send messages in DryRun
 		for _, game := range s.Games {
 			storedGame := game
@@ -213,6 +225,10 @@ func (s *Schedule) SaveGames() error {
 			}
 		}
 		return nil
+	}
+
+	if s.manager == nil {
+		return errors.New("manager not initialized")
 	}
 
 	// Save collection

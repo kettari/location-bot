@@ -23,7 +23,7 @@ func (g *NewGame) Update(game *Game, subject SubjectType) {
 	if subject == SubjectTypeNew {
 		slog.Info("new game event fired", "game_id", game.ExternalID)
 		notification := game.FormatNew()
-		if err := g.bot.Send([]string{notification}); err == nil {
+		if err := g.bot.Send([]string{notification}); err != nil {
 			slog.Error("new game event error", "error", err)
 		}
 	}

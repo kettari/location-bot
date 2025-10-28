@@ -1,0 +1,484 @@
+package parser
+
+import (
+	"fmt"
+	"log/slog"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/kettari/location-bot/internal/entity"
+	"github.com/kettari/location-bot/internal/scraper"
+	html "golang.org/x/net/html"
+)
+
+type HtmlEngineV2 struct{}
+
+var monthsMapV2 = map[string]int{
+	"января":   1,
+	"февраля":  2,
+	"марта":    3,
+	"апреля":   4,
+	"мая":      5,
+	"июня":     6,
+	"июля":     7,
+	"августа":  8,
+	"сентября": 9,
+	"октября":  10,
+	"ноября":   11,
+	"декабря":  12,
+}
+
+func NewHtmlEngineV2() *HtmlEngineV2 {
+	return &HtmlEngineV2{}
+}
+
+// Process parses HTML page and extracts game information into entity.Game structs
+func (he *HtmlEngineV2) Process(page *scraper.Page) (*[]entity.Game, error) {
+	var games []entity.Game
+	slots := make(map[int]time.Time)
+
+	doc, err := html.Parse(strings.NewReader(page.Html))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse HTML: %w", err)
+	}
+
+	var processAllNodes func(*html.Node)
+	processAllNodes = func(n *html.Node) {
+		// Find event-day divs to extract date slots
+		if n.Type == html.ElementNode && n.Data == "div" && he.isDivEventDay(n) {
+			he.parseWeekendDateNodeV2(n.FirstChild, slots)
+		}
+
+		// Find event-single or game-single divs
+		if n.Type == html.ElementNode && n.Data == "div" && he.isDivEvent(n) {
+			id := he.attrValue(n.Attr, "id")
+			if len(id) == 0 {
+				id = "game" + page.URL[strings.LastIndex(page.URL, "/")+1:]
+			}
+
+			slotStr := he.attrValue(n.Attr, "data-timeslot")
+			slot := 0
+			if len(slotStr) > 0 {
+				slot, _ = strconv.Atoi(slotStr)
+			}
+
+			game := entity.Game{
+				ExternalID: id,
+				URL:        page.URL,
+				Slot:       slot,
+			}
+
+			he.processEventNodeV2(n, &game, page.URL)
+			games = append(games, game)
+		}
+
+		// Traverse child nodes
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			processAllNodes(c)
+		}
+	}
+
+	processAllNodes(doc)
+
+	// Assign dates from slots
+	for k := range games {
+		if games[k].Slot == 0 {
+			continue
+		}
+		gameDate, ok := slots[games[k].Slot]
+		if !ok {
+			continue
+		}
+		games[k].Date = gameDate
+	}
+
+	// Set joinable flag
+	for k := range games {
+		if games[k].Date.After(time.Now()) && games[k].SeatsTotal > 0 && games[k].SeatsFree > 0 {
+			games[k].Joinable = true
+		} else {
+			games[k].Joinable = false
+		}
+	}
+
+	slog.Debug("page processed", "page_url", page.URL, "games_count", len(games))
+
+	return &games, nil
+}
+
+func (he *HtmlEngineV2) isDivEvent(n *html.Node) bool {
+	for _, a := range n.Attr {
+		if a.Key == "class" {
+			classVal := a.Val
+			// Match event-single or game-single classes
+			// Check for exact match first
+			if classVal == "game-single" {
+				return true
+			}
+			// Then check for event-single (but not event-single-content, event-single-about, etc.)
+			if strings.Contains(classVal, "event-single") {
+				// Make sure it's not a modifier class like "event-single-content"
+				if !strings.Contains(classVal, "event-single-") {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (he *HtmlEngineV2) isDivEventDay(n *html.Node) bool {
+	for _, a := range n.Attr {
+		if a.Key == "class" && strings.Contains(a.Val, "event-day") {
+			return true
+		}
+	}
+	return false
+}
+
+func (he *HtmlEngineV2) processEventNodeV2(n *html.Node, game *entity.Game, baseURL string) {
+	switch n.Data {
+	case "h4":
+		// Handle game title - check if it has class "game-title"
+		class := he.attrValue(n.Attr, "class")
+		if class == "game-title" {
+			// Weekend event with link
+			he.extractTitleV2(n.FirstChild, game, baseURL)
+		} else {
+			// Single game page with direct text
+			he.extractTitleV2(n, game, baseURL)
+		}
+	case "p":
+		// Handle date/time
+		if he.attrValue(n.Attr, "class") == "subcaption-h4" {
+			game.Date = he.extractSingleEventDateV2(n.FirstChild)
+		}
+		// Handle notes section
+		if strings.Contains(he.attrValue(n.Attr, "class"), "game-description") &&
+			he.hasParentWithClass(n, "i-notes") {
+			game.Notes = he.extractTextContentV2(n)
+		}
+	case "div":
+		// Handle description section
+		if he.attrValue(n.Attr, "class") == "caption" {
+			// Check if this is the "Описание" caption
+			if n.FirstChild != nil && n.FirstChild.Type == html.TextNode &&
+				strings.TrimSpace(n.FirstChild.Data) == "Описание" {
+				// Look for the next sibling with game-description class
+				if n.NextSibling != nil {
+					game.Description = he.extractDescriptionFromCaptionSiblingV2(n.NextSibling)
+				}
+			}
+		}
+	case "table":
+		if strings.Contains(he.attrValue(n.Attr, "class"), "table-single") {
+			he.populateTableV2(n.FirstChild, game, baseURL)
+		}
+	}
+
+	// Traverse child nodes
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		he.processEventNodeV2(c, game, baseURL)
+	}
+}
+
+func (he *HtmlEngineV2) extractTitleV2(n *html.Node, game *entity.Game, baseURL string) {
+	// Handle h4 with game-title class (weekend events with links)
+	if n.Type == html.ElementNode && n.Data == "h4" && he.attrValue(n.Attr, "class") == "game-title" {
+		if n.FirstChild != nil {
+			he.extractTitleV2(n.FirstChild, game, baseURL)
+		}
+		return
+	}
+
+	// Handle h4 with direct text (single game pages)
+	if n.Type == html.ElementNode && n.Data == "h4" {
+		if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+			// Text is directly in h4, not in an <a> tag
+			game.Title = strings.TrimSpace(n.FirstChild.Data)
+		}
+		// Also check for links inside h4
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			he.extractTitleV2(c, game, baseURL)
+		}
+		return
+	}
+
+	// Handle link with title
+	if n.Type == html.ElementNode && n.Data == "a" {
+		if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+			game.Title = strings.TrimSpace(n.FirstChild.Data)
+			href := he.attrValue(n.Attr, "href")
+			if len(href) > 0 {
+				if strings.HasPrefix(href, "http") {
+					game.URL = href
+				} else {
+					game.URL = "https://rolecon.ru" + href
+				}
+			}
+		}
+		return
+	}
+
+	// Continue traversing
+	if n.NextSibling != nil {
+		he.extractTitleV2(n.NextSibling, game, baseURL)
+	}
+	if n.FirstChild != nil {
+		he.extractTitleV2(n.FirstChild, game, baseURL)
+	}
+}
+
+func (he *HtmlEngineV2) extractSingleEventDateV2(n *html.Node) time.Time {
+	if n.Type == html.TextNode && len(strings.Trim(n.Data, " \n\t\r")) > 0 {
+		eventDate := strings.Trim(n.Data, " \n\t\r")
+		// Parse formats like "30 октября 2025, 19:00 - 23:00"
+		r := regexp.MustCompile(`(\d{1,2})\s+([\p{Cyrillic}]+)\s+(\d{4}),\s*(\d{2}):(\d{2})`)
+		matches := r.FindStringSubmatch(eventDate)
+		if len(matches) >= 6 {
+			moscow, err := time.LoadLocation("Europe/Moscow")
+			if err != nil {
+				slog.Warn("failed to load Moscow timezone", "err", err)
+				return time.Time{}
+			}
+
+			year, _ := strconv.Atoi(matches[3])
+			day, _ := strconv.Atoi(matches[1])
+			hour, _ := strconv.Atoi(matches[4])
+			minute, _ := strconv.Atoi(matches[5])
+
+			if month, ok := monthsMapV2[matches[2]]; ok {
+				return time.Date(year, time.Month(month), day, hour, minute, 0, 0, moscow)
+			}
+		}
+	}
+	if n.NextSibling != nil {
+		return he.extractSingleEventDateV2(n.NextSibling)
+	}
+	return time.Time{}
+}
+
+func (he *HtmlEngineV2) populateTableV2(n *html.Node, game *entity.Game, baseURL string) {
+	if n.Type == html.ElementNode && n.Data == "tbody" {
+		if n.FirstChild != nil {
+			he.populateTableV2(n.FirstChild, game, baseURL)
+		}
+	}
+	if n.Type == html.ElementNode && n.Data == "tr" {
+		he.populateRowV2(n.FirstChild, game, baseURL)
+	}
+	if n.NextSibling != nil {
+		he.populateTableV2(n.NextSibling, game, baseURL)
+	}
+}
+
+func (he *HtmlEngineV2) populateRowV2(n *html.Node, game *entity.Game, baseURL string) {
+	if n.Type == html.ElementNode && n.Data == "td" {
+		if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+			key := n.FirstChild.Data
+			switch key {
+			case "Сеттинг:":
+				he.extractTableCellValueV2(n, &game.Setting)
+			case "Система:":
+				he.extractTableCellValueV2(n, &game.System)
+			case "Жанр:":
+				he.extractTableCellValueV2(n, &game.Genre)
+			case "Игру проводит:":
+				he.populateAuthorV2(n, game, baseURL)
+			case "Места:":
+				he.extractSeatsV2(n, game)
+			}
+		}
+	}
+	if n.NextSibling != nil {
+		he.populateRowV2(n.NextSibling, game, baseURL)
+	}
+}
+
+func (he *HtmlEngineV2) extractTableCellValueV2(n *html.Node, value *string) {
+	// Look for the value in next sibling's next sibling (skip the blank td)
+	if n.NextSibling != nil && n.NextSibling.NextSibling != nil {
+		valueNode := n.NextSibling.NextSibling
+		if valueNode.FirstChild != nil && valueNode.FirstChild.Type == html.TextNode {
+			*value = strings.TrimSpace(valueNode.FirstChild.Data)
+		}
+	}
+}
+
+func (he *HtmlEngineV2) extractSeatsV2(n *html.Node, game *entity.Game) {
+	if n.NextSibling != nil && n.NextSibling.NextSibling != nil {
+		valueNode := n.NextSibling.NextSibling
+		if valueNode.FirstChild != nil && valueNode.FirstChild.Type == html.TextNode {
+			seatsText := valueNode.FirstChild.Data
+			// Parse "Осталось X мест из Y" or just "X мест из Y"
+			r := regexp.MustCompile(`(\d+)\s+мест\s+из\s+(\d+)`)
+			matches := r.FindAllStringSubmatch(seatsText, -1)
+			if len(matches) > 0 {
+				game.SeatsFree, _ = strconv.Atoi(matches[0][1])
+				game.SeatsTotal, _ = strconv.Atoi(matches[0][2])
+			}
+		}
+	}
+}
+
+func (he *HtmlEngineV2) populateAuthorV2(n *html.Node, game *entity.Game, baseURL string) {
+	// Find the link in the next sibling's next sibling
+	if n.NextSibling != nil && n.NextSibling.NextSibling != nil {
+		linkNode := n.NextSibling.NextSibling.FirstChild
+		if linkNode != nil && linkNode.Type == html.ElementNode && linkNode.Data == "a" {
+			if linkNode.FirstChild != nil && linkNode.FirstChild.Type == html.TextNode {
+				game.MasterName = strings.TrimSpace(linkNode.FirstChild.Data)
+			}
+			href := he.attrValue(linkNode.Attr, "href")
+			if len(href) > 0 {
+				if strings.HasPrefix(href, "http") {
+					game.MasterLink = href
+				} else {
+					game.MasterLink = "https://rolecon.ru" + href
+				}
+			}
+		}
+	}
+}
+
+func (he *HtmlEngineV2) extractTextContentV2(n *html.Node) string {
+	var result strings.Builder
+
+	if n.Type == html.TextNode {
+		result.WriteString(n.Data)
+	}
+
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.TextNode {
+			result.WriteString(c.Data)
+		} else if c.Type == html.ElementNode {
+			// Handle common HTML elements
+			switch c.Data {
+			case "p":
+				if result.Len() > 0 {
+					result.WriteString("\n\n")
+				}
+			case "br":
+				result.WriteString("\n")
+			case "strong":
+				result.WriteString(he.extractTextContentV2(c))
+			case "em":
+				result.WriteString(he.extractTextContentV2(c))
+			case "ul", "ol":
+				// Handle lists by extracting each li
+				for li := c.FirstChild; li != nil; li = li.NextSibling {
+					if li.Data == "li" {
+						result.WriteString("• ")
+						result.WriteString(he.extractTextContentV2(li))
+						result.WriteString("\n")
+					}
+				}
+			case "li":
+				result.WriteString(he.extractTextContentV2(c))
+			default:
+				result.WriteString(he.extractTextContentV2(c))
+			}
+		}
+	}
+
+	return strings.TrimSpace(result.String())
+}
+
+func (he *HtmlEngineV2) extractDescriptionFromCaptionSiblingV2(n *html.Node) string {
+	if n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "game-description" {
+		return he.extractTextContentV2(n)
+	}
+	if n.FirstChild != nil {
+		return he.extractDescriptionFromCaptionSiblingV2(n.FirstChild)
+	}
+	return ""
+}
+
+func (he *HtmlEngineV2) hasParentWithClass(n *html.Node, className string) bool {
+	if n.Parent == nil {
+		return false
+	}
+	if n.Parent.Type == html.ElementNode && n.Parent.Data == "div" {
+		classAttr := he.attrValue(n.Parent.Attr, "class")
+		if strings.Contains(classAttr, className) {
+			return true
+		}
+	}
+	return he.hasParentWithClass(n.Parent, className)
+}
+
+func (he *HtmlEngineV2) parseWeekendDateNodeV2(n *html.Node, slots map[int]time.Time) {
+	if n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "caption" &&
+		n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+		// Parse dates like "Воскресенье — 2.11.2025"
+		r := regexp.MustCompile(`[\p{Cyrillic}]+\s—\s(\d{1,2})\.(\d{2})\.(\d{4})`)
+		matches := r.FindAllStringSubmatch(n.FirstChild.Data, -1)
+		if len(matches) > 0 {
+			moscow, err := time.LoadLocation("Europe/Moscow")
+			if err != nil {
+				slog.Warn("failed to load Moscow timezone", "err", err)
+				return
+			}
+			year, _ := strconv.Atoi(matches[0][3])
+			month, _ := strconv.Atoi(matches[0][2])
+			day, _ := strconv.Atoi(matches[0][1])
+			slots[0] = time.Date(year, time.Month(month), day, 0, 0, 0, 0, moscow)
+		}
+	}
+
+	// Handle tabs-caption with time slots
+	if n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "tabs-caption" {
+		if n.FirstChild != nil {
+			he.parseWeekendDateNodeV2(n.FirstChild, slots)
+			return
+		}
+	}
+
+	// Handle individual tab-caption entries
+	if n.Type == html.ElementNode && strings.Contains(he.attrValue(n.Attr, "class"), "tab-caption") {
+		slotNumber, _ := strconv.Atoi(he.attrValue(n.Attr, "data-timeslot"))
+		slotContent := ""
+		if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+			slotContent = n.FirstChild.Data
+		}
+		// Parse time like "День (11:00-15:00)" or "Утро (10:00"
+		r := regexp.MustCompile(`[\p{Cyrillic}]+\s*\((\d{2}):(\d{2})`)
+		matches := r.FindAllStringSubmatch(slotContent, -1)
+		if len(matches) > 0 {
+			moscow, err := time.LoadLocation("Europe/Moscow")
+			if err != nil {
+				slog.Warn("failed to load Moscow timezone", "err", err)
+				if n.NextSibling != nil {
+					he.parseWeekendDateNodeV2(n.NextSibling, slots)
+				}
+				return
+			}
+			rootDate, ok := slots[0]
+			if !ok {
+				slog.Warn("root date not set for slot", "slot", slotNumber)
+				if n.NextSibling != nil {
+					he.parseWeekendDateNodeV2(n.NextSibling, slots)
+				}
+				return
+			}
+			hour, _ := strconv.Atoi(matches[0][1])
+			minute, _ := strconv.Atoi(matches[0][2])
+			slots[slotNumber] = time.Date(rootDate.Year(), rootDate.Month(), rootDate.Day(), hour, minute, 0, 0, moscow)
+		}
+	}
+
+	if n.NextSibling != nil {
+		he.parseWeekendDateNodeV2(n.NextSibling, slots)
+	}
+}
+
+func (he *HtmlEngineV2) attrValue(attrs []html.Attribute, key string) string {
+	for _, a := range attrs {
+		if a.Key == key {
+			return a.Val
+		}
+	}
+	return ""
+}

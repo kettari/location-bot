@@ -23,7 +23,7 @@ func (g *CancelledGame) Update(game *Game, subject SubjectType) {
 	if subject == SubjectTypeCancelled {
 		slog.Info("cancelled game event fired", "game_id", game.ExternalID)
 		notification := game.FormatCancelled()
-		if err := g.bot.Send([]string{notification}); err == nil {
+		if err := g.bot.Send([]string{notification}); err != nil {
 			slog.Error("cancelled game event error", "error", err)
 		}
 	}

@@ -54,7 +54,7 @@ func prepareDestination(recipients string) []Recipient {
 
 // Send notification to all prepared recipients
 func (b *Bot) Send(notification []string) (err error) {
-	conf := config.GetConfig()
+	/* conf := config.GetConfig()
 	if conf.DryRun {
 		slog.Info("DRY RUN MODE: skipping Telegram message sending")
 		for _, dest := range b.destination {
@@ -63,7 +63,7 @@ func (b *Bot) Send(notification []string) (err error) {
 			}
 		}
 		return nil
-	}
+	} */
 
 	for _, dest := range b.destination {
 		for _, txt := range notification {
@@ -78,9 +78,9 @@ func (b *Bot) Send(notification []string) (err error) {
 	return nil
 }
 
-func min(a, b int) int {
+/* func min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
-}
+} */
