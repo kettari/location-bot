@@ -180,6 +180,11 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 	// Try to extract the start time from the HTML page (e.g., "19:00" from "Пятница (19:00 - 23:00)")
 	startHour, startMinute := he.extractTimeFromHTML(htmlContent)
 
+	slog.Debug("extracted time from HTML",
+		"html_time", fmt.Sprintf("%02d:%02d", startHour, startMinute),
+		"event_start", event.Start,
+		"event_date", eventDate)
+
 	// Set dates for games that don't have them
 	for k := range games {
 		if games[k].Date.IsZero() {
@@ -193,6 +198,7 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 				slog.Debug("using time from HTML with date from event metadata",
 					"game_id", games[k].ExternalID,
 					"time_from_html", fmt.Sprintf("%02d:%02d", startHour, startMinute),
+					"event_date", eventDate,
 					"final_date", finalDate)
 			} else {
 				// Use time from event metadata
@@ -364,11 +370,20 @@ func (he *HtmlEngineV2) extractSingleEventDateV2(n *html.Node) time.Time {
 		patterns := []string{
 			`(\d{1,2})\s+([\p{Cyrillic}]+)\s+(\d{4}),\s*(\d{2}):(\d{2})`,                       // "30 октября 2025, 19:00"
 			`(\d{1,2})\s+([\p{Cyrillic}]+)\s+(\d{4}),\s*(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})`, // with end time
+			`[\p{Cyrillic}]+\s+\((\d{2}):(\d{2})\s*-\s*\d{2}:\d{2}\)`,                          // "Пятница (19:00 - 23:00)" - no date, only time
 		}
 
-		for _, pattern := range patterns {
+		for i, pattern := range patterns {
 			r := regexp.MustCompile(pattern)
 			matches := r.FindStringSubmatch(eventDate)
+
+			// Pattern "Пятница (19:00 - 23:00)" returns only time, no date
+			if i == 2 && len(matches) >= 3 {
+				// This pattern doesn't have date, return zero time to trigger fallback
+				slog.Debug("found time-only pattern without date", "pattern", pattern, "matches", matches)
+				return time.Time{}
+			}
+
 			if len(matches) >= 6 {
 				moscow, err := time.LoadLocation("Europe/Moscow")
 				if err != nil {
