@@ -157,33 +157,35 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 	}
 
 	// Parse ISO date from event metadata (this gives us the date)
-	eventDate, err := time.Parse("2006-01-02T15:04:05-07:00", event.Start)
-	if err != nil {
-		// Try alternative format without timezone
-		eventDate, err = time.Parse("2006-01-02T15:04:05", event.Start)
-		if err != nil {
-			// Try format from API: "2025-10-30 19:00:00"
-			eventDate, err = time.Parse("2006-01-02 15:04:05", event.Start)
-			if err != nil {
-				eventDate, err = time.Parse("2006-01-02", event.Start)
-				if err != nil {
-					slog.Debug("failed to parse event date", "start", event.Start, "err", err)
-					return
-				}
-			}
-		}
+	var eventDate time.Time
+
+	// Try ISO format with timezone first
+	if eventDate, err = time.Parse("2006-01-02T15:04:05-07:00", event.Start); err == nil {
+		// Already has timezone, just convert to Moscow
+		eventDate = eventDate.In(moscow)
+	} else if eventDate, err = time.ParseInLocation("2006-01-02T15:04:05", event.Start, moscow); err == nil {
+		// ISO format without timezone - assume Moscow time
+	} else if eventDate, err = time.ParseInLocation("2006-01-02 15:04:05", event.Start, moscow); err == nil {
+		// Format "2025-10-30 19:00:00" - assume Moscow time
+	} else if eventDate, err = time.ParseInLocation("2006-01-02", event.Start, moscow); err != nil {
+		slog.Debug("failed to parse event date", "start", event.Start, "err", err)
+		return
 	}
 
-	// Set timezone to Moscow
-	eventDate = eventDate.In(moscow)
-
 	// Try to extract the start time from the HTML page (e.g., "19:00" from "Пятница (19:00 - 23:00)")
-	startHour, startMinute := he.extractTimeFromHTML(htmlContent)
+	// Only do this for single game pages (not event summary pages with multiple games)
+	startHour, startMinute := 0, 0
+	if len(games) == 1 {
+		// Only single game pages should extract time from HTML
+		startHour, startMinute = he.extractTimeFromHTML(htmlContent)
+	}
 
 	slog.Debug("extracted time from HTML",
 		"html_time", fmt.Sprintf("%02d:%02d", startHour, startMinute),
+		"games_count", len(games),
 		"event_start", event.Start,
-		"event_date", eventDate)
+		"event_date", eventDate,
+		"event_date_time", eventDate.Format("15:04"))
 
 	// Set dates for games that don't have them
 	for k := range games {
@@ -199,13 +201,17 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 					"game_id", games[k].ExternalID,
 					"time_from_html", fmt.Sprintf("%02d:%02d", startHour, startMinute),
 					"event_date", eventDate,
-					"final_date", finalDate)
+					"event_date_time", eventDate.Format("15:04"),
+					"final_date", finalDate,
+					"final_date_time", finalDate.Format("15:04"))
 			} else {
 				// Use time from event metadata
 				finalDate = eventDate
 				slog.Debug("using both date and time from event metadata",
 					"game_id", games[k].ExternalID,
-					"final_date", finalDate)
+					"event_date_time", eventDate.Format("15:04"),
+					"final_date", finalDate,
+					"final_date_time", finalDate.Format("15:04"))
 			}
 
 			games[k].Date = finalDate
@@ -227,6 +233,10 @@ func (he *HtmlEngineV2) extractTimeFromHTML(htmlContent string) (hour int, minut
 		if m, err := strconv.Atoi(matches[2]); err == nil {
 			minute = m
 		}
+		slog.Debug("extractTimeFromHTML found match",
+			"pattern", re.String(),
+			"matches", matches,
+			"extracted", fmt.Sprintf("%02d:%02d", hour, minute))
 	}
 
 	return hour, minute
