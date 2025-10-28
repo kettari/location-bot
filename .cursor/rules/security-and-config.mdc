@@ -1,0 +1,23 @@
+---
+globs: *.go,*.env
+description: Security and configuration guidance
+---
+# Security & Configuration
+
+- Configuration
+  - Load via `internal/config`; validate required fields; mark optional ones.
+  - Return errors from config getters; avoid `os.Exit` in library code.
+  - Support `.env` for local dev; do not commit secrets.
+
+- Secrets & PII
+  - Do not log tokens, cookies, DB strings, or user identifiers.
+  - Store secrets in environment or secret managers, not in code.
+
+- Networking
+  - Set HTTP client timeouts and per-request contexts.
+  - Implement retries with backoff for transient failures; cap attempts.
+  - Respect remote rate limits; add jitter.
+
+- Telegram Bot
+  - Batch or rate-limit sends; continue on partial failures.
+  - Validate and sanitize inputs for message content and recipients.

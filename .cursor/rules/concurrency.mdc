@@ -1,0 +1,24 @@
+---
+globs: *.go
+description: Concurrency and worker-pool best practices
+---
+# Concurrency
+
+- Context & Timeouts
+  - Thread cancellation through `context.Context`; pass it down call stacks.
+  - Use per-request contexts with deadlines for HTTP and DB operations.
+
+- Worker Pools
+  - Bound goroutines; parameterize worker counts; avoid unbounded fan-out.
+  - Close channels from producers; coordinate with `sync.WaitGroup`.
+  - Prefer sending results to a single collector goroutine to avoid races.
+
+- Errors & Retries
+  - Propagate and aggregate errors; avoid failing whole batches on first error if safe.
+  - Implement retries with exponential backoff and jitter for transient network errors.
+
+- Data Races
+  - Protect shared state with channels or synchronization; avoid concurrent writes to slices/maps.
+
+- Resource Limits
+  - Set HTTP client `Timeout` and transport limits; respect remote rate limits.

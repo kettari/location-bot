@@ -1,0 +1,12 @@
+---
+globs: *.go
+description: Logging and error handling
+---
+# Logging & Errors
+
+- Use `log/slog` with structured fields.
+- Log lifecycle with Info, detailed internals with Debug, recoverable anomalies with Warn, and failures with Error.
+- Never log secrets (tokens, CSRF, DB strings). Redact or omit.
+- Wrap errors with context using `fmt.Errorf("context: %w", err)`.
+- Libraries should return errors; avoid `os.Exit` except in `main`/CLI layers.
+- Prefer sentinel errors or `errors.Is/As` for branching on error type.

@@ -1,0 +1,18 @@
+---
+globs: *.go
+description: Testing guidance for this repository
+---
+# Testing
+
+- Unit Tests
+  - Table-driven tests for parser (`HtmlEngine`), `prepareDestination`, and JSON unmarshal.
+  - Use subtests for cases; keep fixtures small and local.
+
+- Integration Tests
+  - Use `net/http/httptest` to simulate Rolecon endpoints for scraper and CSRF flow.
+  - Test worker-pool dispatcher: distribution, error aggregation, cancellation.
+
+- Practices
+  - Avoid flakes; keep tests deterministic; control time via injected clock where needed.
+  - Use `testing.T` helpers and `t.Helper()` for shared assertions.
+  - Prefer real boundaries over extensive mocks; mock only external systems.

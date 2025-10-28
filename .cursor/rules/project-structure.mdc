@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+# Project Structure and Entry Points
+
+- Main CLI entrypoint: `cmd/console/main.go` registers commands and dispatches by CLI arg.
+- Commands live in `internal/console/` and include: `schedule:fetch`, `schedule:report:full`, `bot:poll`, `migrate`, `help`.
+- Modules and responsibilities:
+  - `internal/scraper`: HTTP fetch, CSRF extraction, events JSON retrieval.
+  - `internal/parser`: HTML parsing to `entity.Game` via `HtmlEngine`.
+  - `internal/schedule`: schedule orchestration, persistence, reporting.
+  - `internal/entity`: domain models and observers (notifications on new/cancel/joinable).
+  - `internal/bot`: Telegram dispatch (message sending, recipients parsing).
+  - `internal/storage`: database manager (GORM) and data access.
+  - `internal/handler`: Telegram command handlers for `/help`, `/start`, `/games`.
+  - `internal/config`: environment-driven configuration.
+
+Guidelines:
+- Keep new code within these module boundaries; avoid cross-module knowledge leaks.
+- Prefer adding new commands under `internal/console` and wiring them in `cmd/console/main.go`.
+- For data flow: scraping → parsing → schedule/storage → observers/bot; respect this direction.

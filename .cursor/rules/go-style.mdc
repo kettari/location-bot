@@ -1,0 +1,31 @@
+---
+globs: *.go
+description: Go style and conventions for this repository
+---
+# Go Style
+
+- Naming
+  - Use explicit, descriptive names; avoid 1–2 character identifiers.
+  - Functions/methods are verbs; types/structs/interfaces are nouns.
+  - Exported identifiers require concise GoDoc comments.
+
+- Control Flow
+  - Prefer early returns to reduce nesting; avoid deep nesting (> 2–3 levels).
+  - Return errors instead of panicking; reserve `panic` for programming errors.
+  - Avoid complex one-liners; prioritize clarity over cleverness.
+
+- Types & APIs
+  - Accept interfaces, return concrete types when reasonable.
+  - Keep function parameters small; group related parameters into structs when meaningful.
+  - Avoid package-level mutable state; inject dependencies via constructors.
+
+- Formatting
+  - Use standard `gofmt`/`goimports` formatting.
+  - Keep lines readable; break long expressions across lines.
+
+- Comments
+  - Only add comments that convey non-obvious rationale, invariants, or caveats.
+  - Avoid redundant comments that restate the code.
+
+- Logging
+  - Prefer `log/slog` with structured fields; do not log secrets.
