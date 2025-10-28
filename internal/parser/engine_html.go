@@ -135,19 +135,16 @@ func (he *HtmlEngine) processEventNode(n *html.Node, game *entity.Game) {
 			}
 		}
 		game.Title = strings.Trim(game.Title, " \n\r\t")
-		break
 	case "p":
 		if he.attrValue(n.Attr, "class") == "subcaption-h4" && n.FirstChild != nil {
 			game.Date = he.findSingleEventDateTime(n.FirstChild)
 		}
-		break
 	case "table":
 		if strings.Contains(he.attrValue(n.Attr, "class"), "table-single") {
 			if n.FirstChild != nil {
 				he.populateTable(n.FirstChild, game)
 			}
 		}
-		break
 	}
 
 	// Traverse child nodes
@@ -208,7 +205,6 @@ func (he *HtmlEngine) populateTable(n *html.Node, game *entity.Game) {
 	if n.NextSibling != nil {
 		he.populateTable(n.NextSibling, game)
 	}
-	return
 }
 
 func (he *HtmlEngine) populateRow(n *html.Node, game *entity.Game) {
@@ -222,7 +218,6 @@ func (he *HtmlEngine) populateRow(n *html.Node, game *entity.Game) {
 					game.Setting = n.NextSibling.NextSibling.FirstChild.Data
 					return
 				}
-				break
 			case "Система:":
 				if n.NextSibling != nil && n.NextSibling.NextSibling != nil &&
 					n.NextSibling.NextSibling.FirstChild != nil &&
@@ -230,7 +225,6 @@ func (he *HtmlEngine) populateRow(n *html.Node, game *entity.Game) {
 					game.System = n.NextSibling.NextSibling.FirstChild.Data
 					return
 				}
-				break
 			case "Жанр:":
 				if n.NextSibling != nil && n.NextSibling.NextSibling != nil &&
 					n.NextSibling.NextSibling.FirstChild != nil &&
@@ -238,14 +232,12 @@ func (he *HtmlEngine) populateRow(n *html.Node, game *entity.Game) {
 					game.Genre = n.NextSibling.NextSibling.FirstChild.Data
 					return
 				}
-				break
 			case "Игру проводит:":
 				if n.NextSibling != nil && n.NextSibling.NextSibling != nil &&
 					n.NextSibling.NextSibling.FirstChild != nil {
 					he.populateAuthor(n.NextSibling.NextSibling.FirstChild, game)
 					return
 				}
-				break
 			case "Места:":
 				if n.NextSibling != nil && n.NextSibling.NextSibling != nil &&
 					n.NextSibling.NextSibling.FirstChild != nil &&
@@ -258,7 +250,6 @@ func (he *HtmlEngine) populateRow(n *html.Node, game *entity.Game) {
 					}
 					return
 				}
-				break
 			}
 		}
 	}
@@ -277,7 +268,6 @@ func (he *HtmlEngine) populateAuthor(n *html.Node, game *entity.Game) {
 	if n.NextSibling != nil {
 		he.populateAuthor(n.NextSibling, game)
 	}
-	return
 }
 
 func (he *HtmlEngine) attrValue(attrs []html.Attribute, key string) string {

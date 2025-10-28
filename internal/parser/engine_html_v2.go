@@ -36,76 +36,75 @@ func NewHtmlEngineV2() *HtmlEngineV2 {
 
 // Process parses HTML page and extracts game information into entity.Game structs
 func (he *HtmlEngineV2) Process(page *scraper.Page) (*[]entity.Game, error) {
-	var games []entity.Game
-	slots := make(map[int]time.Time)
-
 	doc, err := html.Parse(strings.NewReader(page.Html))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}
 
-	var processAllNodes func(*html.Node)
-	processAllNodes = func(n *html.Node) {
-		// Find event-day divs to extract date slots
-		if n.Type == html.ElementNode && n.Data == "div" && he.isDivEventDay(n) {
-			he.parseWeekendDateNodeV2(n.FirstChild, slots)
+	games, slots := he.extractGamesFromPage(doc, page)
+	he.assignDatesFromSlots(games, slots)
+	he.setJoinableFlags(games)
+
+	slog.Debug("page processed", "page_url", page.URL, "games_count", len(games))
+	return &games, nil
+}
+
+func (he *HtmlEngineV2) extractGamesFromPage(doc *html.Node, page *scraper.Page) ([]entity.Game, map[int]time.Time) {
+	var games []entity.Game
+	slots := make(map[int]time.Time)
+
+	var traverse func(*html.Node)
+	traverse = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "div" {
+			if he.isDivEventDay(n) {
+				he.parseWeekendDateNodeV2(n.FirstChild, slots)
+			}
+			if he.isDivEvent(n) {
+				game := he.createGameFromDiv(n, page)
+				he.processEventNodeV2(n, &game, page.URL)
+				games = append(games, game)
+			}
 		}
-
-		// Find event-single or game-single divs
-		if n.Type == html.ElementNode && n.Data == "div" && he.isDivEvent(n) {
-			id := he.attrValue(n.Attr, "id")
-			if len(id) == 0 {
-				id = "game" + page.URL[strings.LastIndex(page.URL, "/")+1:]
-			}
-
-			slotStr := he.attrValue(n.Attr, "data-timeslot")
-			slot := 0
-			if len(slotStr) > 0 {
-				slot, _ = strconv.Atoi(slotStr)
-			}
-
-			game := entity.Game{
-				ExternalID: id,
-				URL:        page.URL,
-				Slot:       slot,
-			}
-
-			he.processEventNodeV2(n, &game, page.URL)
-			games = append(games, game)
-		}
-
-		// Traverse child nodes
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			processAllNodes(c)
+			traverse(c)
 		}
 	}
+	traverse(doc)
 
-	processAllNodes(doc)
+	return games, slots
+}
 
-	// Assign dates from slots
+func (he *HtmlEngineV2) createGameFromDiv(n *html.Node, page *scraper.Page) entity.Game {
+	id := he.attrValue(n.Attr, "id")
+	if id == "" {
+		id = "game" + page.URL[strings.LastIndex(page.URL, "/")+1:]
+	}
+
+	slot, _ := strconv.Atoi(he.attrValue(n.Attr, "data-timeslot"))
+
+	return entity.Game{
+		ExternalID: id,
+		URL:        page.URL,
+		Slot:       slot,
+	}
+}
+
+func (he *HtmlEngineV2) assignDatesFromSlots(games []entity.Game, slots map[int]time.Time) {
 	for k := range games {
 		if games[k].Slot == 0 {
 			continue
 		}
-		gameDate, ok := slots[games[k].Slot]
-		if !ok {
-			continue
+		if gameDate, ok := slots[games[k].Slot]; ok {
+			games[k].Date = gameDate
 		}
-		games[k].Date = gameDate
 	}
+}
 
-	// Set joinable flag
+func (he *HtmlEngineV2) setJoinableFlags(games []entity.Game) {
 	for k := range games {
-		if games[k].Date.After(time.Now()) && games[k].SeatsTotal > 0 && games[k].SeatsFree > 0 {
-			games[k].Joinable = true
-		} else {
-			games[k].Joinable = false
-		}
+		games[k].Joinable = games[k].Date.After(time.Now()) &&
+			games[k].SeatsTotal > 0 && games[k].SeatsFree > 0
 	}
-
-	slog.Debug("page processed", "page_url", page.URL, "games_count", len(games))
-
-	return &games, nil
 }
 
 func (he *HtmlEngineV2) isDivEvent(n *html.Node) bool {
@@ -345,45 +344,41 @@ func (he *HtmlEngineV2) populateAuthorV2(n *html.Node, game *entity.Game, baseUR
 
 func (he *HtmlEngineV2) extractTextContentV2(n *html.Node) string {
 	var result strings.Builder
+	he.writeNodeText(n, &result)
+	return strings.TrimSpace(result.String())
+}
 
+func (he *HtmlEngineV2) writeNodeText(n *html.Node, result *strings.Builder) {
 	if n.Type == html.TextNode {
 		result.WriteString(n.Data)
+		return
 	}
 
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		if c.Type == html.TextNode {
-			result.WriteString(c.Data)
-		} else if c.Type == html.ElementNode {
-			// Handle common HTML elements
-			switch c.Data {
-			case "p":
-				if result.Len() > 0 {
-					result.WriteString("\n\n")
-				}
-			case "br":
-				result.WriteString("\n")
-			case "strong":
-				result.WriteString(he.extractTextContentV2(c))
-			case "em":
-				result.WriteString(he.extractTextContentV2(c))
-			case "ul", "ol":
-				// Handle lists by extracting each li
-				for li := c.FirstChild; li != nil; li = li.NextSibling {
-					if li.Data == "li" {
-						result.WriteString("• ")
-						result.WriteString(he.extractTextContentV2(li))
-						result.WriteString("\n")
-					}
-				}
-			case "li":
-				result.WriteString(he.extractTextContentV2(c))
-			default:
-				result.WriteString(he.extractTextContentV2(c))
+	if n.Type == html.ElementNode {
+		switch n.Data {
+		case "p":
+			if result.Len() > 0 {
+				result.WriteString("\n\n")
 			}
+		case "br":
+			result.WriteString("\n")
+		case "ul", "ol":
+			for li := n.FirstChild; li != nil; li = li.NextSibling {
+				if li.Data == "li" {
+					result.WriteString("• ")
+					for c := li.FirstChild; c != nil; c = c.NextSibling {
+						he.writeNodeText(c, result)
+					}
+					result.WriteString("\n")
+				}
+			}
+			return
 		}
 	}
 
-	return strings.TrimSpace(result.String())
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		he.writeNodeText(c, result)
+	}
 }
 
 func (he *HtmlEngineV2) extractDescriptionFromCaptionSiblingV2(n *html.Node) string {
@@ -410,68 +405,83 @@ func (he *HtmlEngineV2) hasParentWithClass(n *html.Node, className string) bool 
 }
 
 func (he *HtmlEngineV2) parseWeekendDateNodeV2(n *html.Node, slots map[int]time.Time) {
-	if n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "caption" &&
-		n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
-		// Parse dates like "Воскресенье — 2.11.2025"
-		r := regexp.MustCompile(`[\p{Cyrillic}]+\s—\s(\d{1,2})\.(\d{2})\.(\d{4})`)
-		matches := r.FindAllStringSubmatch(n.FirstChild.Data, -1)
-		if len(matches) > 0 {
-			moscow, err := time.LoadLocation("Europe/Moscow")
-			if err != nil {
-				slog.Warn("failed to load Moscow timezone", "err", err)
-				return
-			}
-			year, _ := strconv.Atoi(matches[0][3])
-			month, _ := strconv.Atoi(matches[0][2])
-			day, _ := strconv.Atoi(matches[0][1])
-			slots[0] = time.Date(year, time.Month(month), day, 0, 0, 0, 0, moscow)
-		}
+	if n == nil {
+		return
 	}
 
-	// Handle tabs-caption with time slots
-	if n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "tabs-caption" {
-		if n.FirstChild != nil {
-			he.parseWeekendDateNodeV2(n.FirstChild, slots)
-			return
-		}
+	switch {
+	case he.isCaptionNode(n):
+		he.parseCaptionDate(n, slots)
+	case he.isTabsCaptionNode(n):
+		he.parseWeekendDateNodeV2(n.FirstChild, slots)
+		return
+	case he.isTabCaptionNode(n):
+		he.parseTabCaptionSlot(n, slots)
 	}
 
-	// Handle individual tab-caption entries
-	if n.Type == html.ElementNode && strings.Contains(he.attrValue(n.Attr, "class"), "tab-caption") {
-		slotNumber, _ := strconv.Atoi(he.attrValue(n.Attr, "data-timeslot"))
-		slotContent := ""
-		if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
-			slotContent = n.FirstChild.Data
-		}
-		// Parse time like "День (11:00-15:00)" or "Утро (10:00"
-		r := regexp.MustCompile(`[\p{Cyrillic}]+\s*\((\d{2}):(\d{2})`)
-		matches := r.FindAllStringSubmatch(slotContent, -1)
-		if len(matches) > 0 {
-			moscow, err := time.LoadLocation("Europe/Moscow")
-			if err != nil {
-				slog.Warn("failed to load Moscow timezone", "err", err)
-				if n.NextSibling != nil {
-					he.parseWeekendDateNodeV2(n.NextSibling, slots)
-				}
-				return
-			}
-			rootDate, ok := slots[0]
-			if !ok {
-				slog.Warn("root date not set for slot", "slot", slotNumber)
-				if n.NextSibling != nil {
-					he.parseWeekendDateNodeV2(n.NextSibling, slots)
-				}
-				return
-			}
-			hour, _ := strconv.Atoi(matches[0][1])
-			minute, _ := strconv.Atoi(matches[0][2])
-			slots[slotNumber] = time.Date(rootDate.Year(), rootDate.Month(), rootDate.Day(), hour, minute, 0, 0, moscow)
-		}
+	he.parseWeekendDateNodeV2(n.NextSibling, slots)
+}
+
+func (he *HtmlEngineV2) isCaptionNode(n *html.Node) bool {
+	return n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "caption" &&
+		n.FirstChild != nil && n.FirstChild.Type == html.TextNode
+}
+
+func (he *HtmlEngineV2) isTabsCaptionNode(n *html.Node) bool {
+	return n.Type == html.ElementNode && he.attrValue(n.Attr, "class") == "tabs-caption"
+}
+
+func (he *HtmlEngineV2) isTabCaptionNode(n *html.Node) bool {
+	return n.Type == html.ElementNode && strings.Contains(he.attrValue(n.Attr, "class"), "tab-caption")
+}
+
+func (he *HtmlEngineV2) parseCaptionDate(n *html.Node, slots map[int]time.Time) {
+	r := regexp.MustCompile(`[\p{Cyrillic}]+\s—\s(\d{1,2})\.(\d{2})\.(\d{4})`)
+	matches := r.FindAllStringSubmatch(n.FirstChild.Data, -1)
+	if len(matches) == 0 {
+		return
 	}
 
-	if n.NextSibling != nil {
-		he.parseWeekendDateNodeV2(n.NextSibling, slots)
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		slog.Warn("failed to load Moscow timezone", "err", err)
+		return
 	}
+
+	year, _ := strconv.Atoi(matches[0][3])
+	month, _ := strconv.Atoi(matches[0][2])
+	day, _ := strconv.Atoi(matches[0][1])
+	slots[0] = time.Date(year, time.Month(month), day, 0, 0, 0, 0, moscow)
+}
+
+func (he *HtmlEngineV2) parseTabCaptionSlot(n *html.Node, slots map[int]time.Time) {
+	slotNumber, _ := strconv.Atoi(he.attrValue(n.Attr, "data-timeslot"))
+	slotContent := ""
+	if n.FirstChild != nil && n.FirstChild.Type == html.TextNode {
+		slotContent = n.FirstChild.Data
+	}
+
+	r := regexp.MustCompile(`[\p{Cyrillic}]+\s*\((\d{2}):(\d{2})`)
+	matches := r.FindAllStringSubmatch(slotContent, -1)
+	if len(matches) == 0 {
+		return
+	}
+
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		slog.Warn("failed to load Moscow timezone", "err", err)
+		return
+	}
+
+	rootDate, ok := slots[0]
+	if !ok {
+		slog.Warn("root date not set for slot", "slot", slotNumber)
+		return
+	}
+
+	hour, _ := strconv.Atoi(matches[0][1])
+	minute, _ := strconv.Atoi(matches[0][2])
+	slots[slotNumber] = time.Date(rootDate.Year(), rootDate.Month(), rootDate.Day(), hour, minute, 0, 0, moscow)
 }
 
 func (he *HtmlEngineV2) attrValue(attrs []html.Attribute, key string) string {
