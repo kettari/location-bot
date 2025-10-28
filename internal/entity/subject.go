@@ -7,8 +7,3 @@ const (
 	SubjectTypeBecomeJoinable SubjectType = "become_joinable"
 	SubjectTypeCancelled      SubjectType = "cancelled"
 )
-
-type subject interface {
-	Register(observer *Observer)
-	notifyAll(subject SubjectType)
-}
