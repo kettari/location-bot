@@ -698,7 +698,11 @@ func (he *HtmlEngineV2) parseCaptionDate(n *html.Node, slots map[int]time.Time) 
 		dateText = n.FirstChild.Data
 	}
 
-	r := regexp.MustCompile(`[\p{Cyrillic}]+\s—\s(\d{1,2})\.(\d{2})\.(\d{4})`)
+	// Pattern matches formats like:
+	// - "Пятница — 7.11.2025" (without parentheses)
+	// - "Воскресенье (09.11) — 9.11.2025" (with parentheses)
+	// The actual date is always after the em dash (—)
+	r := regexp.MustCompile(`[\p{Cyrillic}]+(?:\s+\([^\)]+\))?\s—\s(\d{1,2})\.(\d{2})\.(\d{4})`)
 	matches := r.FindAllStringSubmatch(dateText, -1)
 	if len(matches) == 0 {
 		slog.Debug("parseCaptionDate: no matches found", "date_text", dateText, "pattern", r.String())

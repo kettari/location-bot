@@ -362,6 +362,90 @@ func TestHtmlEngineV2_ParseDateSlots(t *testing.T) {
 	}
 }
 
+func TestHtmlEngineV2_ParseDateSlots_WithParentheses(t *testing.T) {
+	engine := NewHtmlEngineV2()
+	slots := make(map[int]time.Time)
+
+	// Test the format with parentheses: "Воскресенье (09.11) — 9.11.2025"
+	htmlStr := `
+	<html>
+	<body>
+		<div class="event-day">
+			<div class="caption">Воскресенье (09.11) — 9.11.2025</div>
+			<div class="tabs-caption">
+				<div class="tab-caption active" data-timeslot="3365">Воскресенье (11:30 - 15:30)</div>
+				<div class="tab-caption" data-timeslot="3366">Воскресенье (17:30 - 21:30)</div>
+			</div>
+		</div>
+	</body>
+	</html>`
+
+	doc, err := htmlpkg.Parse(strings.NewReader(htmlStr))
+	if err != nil {
+		t.Fatalf("Failed to parse HTML: %v", err)
+	}
+
+	// Find the event-day div
+	var eventDay *htmlpkg.Node
+	var findEventDay func(*htmlpkg.Node)
+	findEventDay = func(n *htmlpkg.Node) {
+		if n.Type == htmlpkg.ElementNode && n.Data == "div" {
+			for _, attr := range n.Attr {
+				if attr.Key == "class" && attr.Val == "event-day" {
+					eventDay = n
+					return
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			findEventDay(c)
+		}
+	}
+	findEventDay(doc)
+
+	if eventDay == nil {
+		t.Fatal("Could not find event-day div")
+	}
+
+	engine.parseWeekendDateNodeV2(eventDay.FirstChild, slots)
+
+	// Check that slots are populated
+	if len(slots) == 0 {
+		t.Error("No date slots were parsed")
+	}
+
+	// Check that root date (slot 0) is set
+	if _, ok := slots[0]; !ok {
+		t.Error("Root date (slot 0) not set")
+	}
+
+	// Verify the date - should be November 9, 2025
+	moscow, _ := time.LoadLocation("Europe/Moscow")
+	expectedDate := time.Date(2025, 11, 9, 0, 0, 0, 0, moscow)
+	if slots[0].Format("2006-01-02") != expectedDate.Format("2006-01-02") {
+		t.Errorf("Root date = %v, want %v (should parse '9.11.2025' from 'Воскресенье (09.11) — 9.11.2025')", slots[0], expectedDate)
+	}
+
+	// Verify time slots have correct times
+	if date, ok := slots[3365]; ok {
+		if date.Hour() != 11 {
+			t.Errorf("Slot 3365 hour = %d, want 11", date.Hour())
+		}
+		if date.Minute() != 30 {
+			t.Errorf("Slot 3365 minute = %d, want 30", date.Minute())
+		}
+	}
+
+	if date, ok := slots[3366]; ok {
+		if date.Hour() != 17 {
+			t.Errorf("Slot 3366 hour = %d, want 17", date.Hour())
+		}
+		if date.Minute() != 30 {
+			t.Errorf("Slot 3366 minute = %d, want 30", date.Minute())
+		}
+	}
+}
+
 func TestHtmlEngineV2_Process_MinimalEvent(t *testing.T) {
 	html := `
 	<html>
