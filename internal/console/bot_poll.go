@@ -1,11 +1,12 @@
 package console
 
 import (
+	"log/slog"
+	"time"
+
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/handler"
 	tele "gopkg.in/telebot.v4"
-	"log/slog"
-	"time"
 )
 
 const pollTimeout = 58
@@ -46,8 +47,7 @@ func (cmd *BotPollCommand) Run() error {
 	b.Handle("/games", handler.NewGamesHandler())
 
 	// Gracefully shutdown the bot after timeout
-	c := make(chan int)
-	go stopPoll(b, c)
+	go stopPoll(b)
 	// Start poll
 	b.Start()
 
@@ -57,16 +57,10 @@ func (cmd *BotPollCommand) Run() error {
 }
 
 // stopPoll after timeout
-func stopPoll(bot *tele.Bot, c chan int) {
+func stopPoll(bot *tele.Bot) {
 	stop := time.After(pollTimeout * time.Second)
 	slog.Info("timeout for shutdown started", "timeout_seconds", pollTimeout)
-	for {
-		select {
-		case <-stop:
-			slog.Info("stopping the poll")
-			bot.Stop()
-			return
-		}
-	}
-
+	<-stop
+	slog.Info("stopping the poll")
+	bot.Stop()
 }

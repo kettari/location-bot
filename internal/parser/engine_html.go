@@ -265,7 +265,6 @@ func (he *HtmlEngine) populateRow(n *html.Node, game *entity.Game) {
 	if n.NextSibling != nil {
 		he.populateRow(n.NextSibling, game)
 	}
-	return
 }
 
 func (he *HtmlEngine) populateAuthor(n *html.Node, game *entity.Game) {
