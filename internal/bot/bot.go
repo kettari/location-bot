@@ -21,11 +21,11 @@ type Recipient struct {
 }
 
 // CreateBot returns [MessageDispatcher] object to send notifications
+//   - token is the Telegram bot token
 //   - recipients is a string "chat_id1,thread_id1;chat_id2,thread_id2"
-func CreateBot(recipients string) (entity.MessageDispatcher, error) {
-	conf := config.GetConfig()
+func CreateBot(token, recipients string) (entity.MessageDispatcher, error) {
 	pref := tele.Settings{
-		Token: conf.BotToken,
+		Token: token,
 	}
 	b, err := tele.NewBot(pref)
 	if err != nil {
@@ -36,6 +36,13 @@ func CreateBot(recipients string) (entity.MessageDispatcher, error) {
 		bot:         b,
 		destination: prepareDestination(recipients),
 	}, nil
+}
+
+// CreateBotFromConfig returns [MessageDispatcher] using configuration from environment
+// This is a convenience wrapper for backwards compatibility
+func CreateBotFromConfig(recipients string) (entity.MessageDispatcher, error) {
+	conf := config.GetConfig()
+	return CreateBot(conf.BotToken, recipients)
 }
 
 // prepareDestination parses configuration files and prepares array with [gopkg.in/telebot.v4.User]

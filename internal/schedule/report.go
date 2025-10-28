@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/kettari/location-bot/internal/bot"
+	"github.com/kettari/location-bot/internal/config"
 )
 
 // ExecuteFullReport and send notification to recipients
@@ -12,7 +13,8 @@ import (
 func (s *Schedule) ExecuteFullReport(destination string) error {
 	slog.Info("executing joinable games full report")
 
-	b, err := bot.CreateBot(destination)
+	conf := config.GetConfig()
+	b, err := bot.CreateBot(conf.BotToken, destination)
 	if err != nil {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err

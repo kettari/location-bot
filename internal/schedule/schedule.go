@@ -155,7 +155,7 @@ func (s *Schedule) CheckAbsentGames() error {
 		return result.Error
 	}
 	// Register observers
-	b, err := bot.CreateBot(conf.NotificationChatID)
+	b, err := bot.CreateBot(conf.BotToken, conf.NotificationChatID)
 	if err != nil {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err

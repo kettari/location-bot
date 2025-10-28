@@ -107,7 +107,8 @@ func (cmd *ScheduleFetchCommand) Run() error {
 	compareResults(sch.Games, schV2)
 
 	// Register observers
-	b, err := bot.CreateBot(conf.NotificationChatID)
+	// Create bot with dependency injection (token and recipients)
+	b, err := bot.CreateBot(conf.BotToken, conf.NotificationChatID)
 	if err != nil {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err
