@@ -61,10 +61,11 @@ func (he *HtmlEngineV2) ProcessWithEvents(page *scraper.Page, eventMap map[strin
 	games, slots := he.extractGamesFromPage(doc, page)
 	he.assignDatesFromSlots(games, slots)
 
+	// Store the HTML for extracting time from pages without dates
 	// If page parsing didn't find dates, try to use event metadata
 	if eventMap != nil {
 		if event, ok := eventMap[page.URL]; ok {
-			he.fallbackToEventDates(games, event)
+			he.fallbackToEventDates(games, event, page.Html)
 		}
 	}
 
@@ -142,8 +143,9 @@ func (he *HtmlEngineV2) setJoinableFlags(games []entity.Game) {
 	}
 }
 
-// fallbackToEventDates sets dates from event metadata if game date is not set
-func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.RoleconEvent) {
+// fallbackToEventDates sets dates from event metadata if game date is not set.
+// The date is taken from event metadata, but the time is extracted from the game's HTML page.
+func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.RoleconEvent, htmlContent string) {
 	if event.Start == "" {
 		return
 	}
@@ -154,16 +156,20 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 		return
 	}
 
-	// Parse ISO date from event
+	// Parse ISO date from event metadata (this gives us the date)
 	eventDate, err := time.Parse("2006-01-02T15:04:05-07:00", event.Start)
 	if err != nil {
-		// Try alternative format
+		// Try alternative format without timezone
 		eventDate, err = time.Parse("2006-01-02T15:04:05", event.Start)
 		if err != nil {
-			eventDate, err = time.Parse("2006-01-02", event.Start)
+			// Try format from API: "2025-10-30 19:00:00"
+			eventDate, err = time.Parse("2006-01-02 15:04:05", event.Start)
 			if err != nil {
-				slog.Debug("failed to parse event date", "start", event.Start, "err", err)
-				return
+				eventDate, err = time.Parse("2006-01-02", event.Start)
+				if err != nil {
+					slog.Debug("failed to parse event date", "start", event.Start, "err", err)
+					return
+				}
 			}
 		}
 	}
@@ -171,15 +177,53 @@ func (he *HtmlEngineV2) fallbackToEventDates(games []entity.Game, event scraper.
 	// Set timezone to Moscow
 	eventDate = eventDate.In(moscow)
 
+	// Try to extract the start time from the HTML page (e.g., "19:00" from "Пятница (19:00 - 23:00)")
+	startHour, startMinute := he.extractTimeFromHTML(htmlContent)
+
 	// Set dates for games that don't have them
 	for k := range games {
 		if games[k].Date.IsZero() {
-			games[k].Date = eventDate
-			slog.Debug("using fallback date from event metadata",
-				"game_id", games[k].ExternalID,
-				"event_date", eventDate)
+			var finalDate time.Time
+
+			// If we successfully extracted time from HTML, use it with date from event metadata
+			// Otherwise use both date and time from event metadata
+			if startHour >= 0 && startMinute >= 0 {
+				finalDate = time.Date(eventDate.Year(), eventDate.Month(), eventDate.Day(),
+					startHour, startMinute, 0, 0, moscow)
+				slog.Debug("using time from HTML with date from event metadata",
+					"game_id", games[k].ExternalID,
+					"time_from_html", fmt.Sprintf("%02d:%02d", startHour, startMinute),
+					"final_date", finalDate)
+			} else {
+				// Use time from event metadata
+				finalDate = eventDate
+				slog.Debug("using both date and time from event metadata",
+					"game_id", games[k].ExternalID,
+					"final_date", finalDate)
+			}
+
+			games[k].Date = finalDate
 		}
 	}
+}
+
+// extractTimeFromHTML extracts the start time from HTML content
+// Looks for patterns like "Пятница (19:00 - 23:00)" and extracts "19:00"
+func (he *HtmlEngineV2) extractTimeFromHTML(htmlContent string) (hour int, minute int) {
+	// Pattern to match time ranges like "(19:00 - 23:00)"
+	re := regexp.MustCompile(`\((\d{2}):(\d{2})\s*-\s*\d{2}:\d{2}\)`)
+	matches := re.FindStringSubmatch(htmlContent)
+
+	if len(matches) >= 3 {
+		if h, err := strconv.Atoi(matches[1]); err == nil {
+			hour = h
+		}
+		if m, err := strconv.Atoi(matches[2]); err == nil {
+			minute = m
+		}
+	}
+
+	return hour, minute
 }
 
 func (he *HtmlEngineV2) isDivEvent(n *html.Node) bool {

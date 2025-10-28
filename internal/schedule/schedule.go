@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
@@ -36,6 +37,25 @@ func (s *Schedule) Format() ([]string, error) {
 	if len(s.Games) == 0 {
 		return []string{"Открытых игр для записи на сайте нет."}, nil
 	}
+
+	// Sort games: by date (ascending), then by free seats (descending), then by title (ascending)
+	sort.Slice(s.Games, func(i, j int) bool {
+		// First: sort by date ascending
+		if s.Games[i].Date.Before(s.Games[j].Date) {
+			return true
+		}
+		if s.Games[i].Date.After(s.Games[j].Date) {
+			return false
+		}
+
+		// Second: if same time, sort by free seats descending (most free first)
+		if s.Games[i].SeatsFree != s.Games[j].SeatsFree {
+			return s.Games[i].SeatsFree > s.Games[j].SeatsFree
+		}
+
+		// Third: if same free seats, sort by title ascending
+		return s.Games[i].Title < s.Games[j].Title
+	})
 
 	dow := map[string]string{
 		"Mon": "ПОНЕДЕЛЬНИК",
