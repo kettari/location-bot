@@ -16,13 +16,13 @@ type Events struct {
 }
 
 type RoleconEvent struct {
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	URL       string `json:"url"`
-	Start     string `json:"start"` // ISO date from calendar
-	End       string `json:"end"`   // ISO date from calendar
-	AllDay    bool   `json:"allDay"`
-	ClassName string `json:"className"` // CSS class for event type
+	ID        int      `json:"id"`
+	Title     string   `json:"title"`
+	URL       string   `json:"url"`
+	Start     string   `json:"start"` // ISO date from calendar
+	End       string   `json:"end"`   // ISO date from calendar
+	AllDay    bool     `json:"allDay"`
+	ClassName []string `json:"className"` // CSS class for event type (array in API)
 }
 
 func NewEvents(url string, csrf *Csrf) *Events {

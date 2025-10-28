@@ -1,0 +1,58 @@
+
+
+@font-face {
+	font-family: "SRegular";
+	src: url("../fonts/PFBeauSansPro-Regular.woff");
+}
+
+@font-face {
+	font-family: "SBold";
+	src: url("../fonts/PFBeauSansPro-Bold.woff");
+}
+
+@font-face {
+	font-family: "SBlack";
+	src: url("../fonts/PFBeauSansPro-Black.woff");
+}
+
+@font-face {
+	font-family: "SLight";
+	src: url("../fonts/PFBeauSansPro-Light.woff");
+}
+
+@font-face {
+	font-family: "SItalic";
+	src: url("../fonts/PFBeauSansPro-Italic.woff");
+}
+
+@font-face {
+	font-family: "SSemiBold";
+	src: url("../fonts/PFBeauSansPro-SemiBold.woff");
+}
+
+
+
+
+
+
+
+
+@font-face {
+	font-family: "ORegular";
+	src: url("../fonts/opensans-regular.woff");
+}
+
+@font-face {
+	font-family: "OItalic";
+	src: url("../fonts/opensans-italic.woff");
+}
+
+@font-face {
+	font-family: "OBold";
+	src: url("../fonts/opensans-bold.woff");
+}
+
+@font-face {
+	font-family: "Avanti";
+	src: url("../fonts/Avanti.woff");
+}

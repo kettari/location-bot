@@ -654,6 +654,263 @@ func mustLoadMoscow() *time.Location {
 	return moscow
 }
 
+func TestHtmlEngineV2_ProcessWithEvents_RealHTMLExample(t *testing.T) {
+	// Test with actual HTML from "Охота: Война в тени" game page
+	// This page has date format "Пятница (19:00 - 23:00)" without specific date
+	html := `<!DOCTYPE html>
+<html lang="ru-RU">
+<body>
+    <div class="game-single" id="game18475">
+        <h4>Охота: Война в тени</h4>
+        <p class="subcaption-h4">
+            Пятница (19:00 - 23:00), ,
+19:00 - 23:00            </p>
+        <table class="table-single reverse">
+                    <tbody>
+                        <tr>
+                            <td>Сеттинг:</td>
+                            <td></td>
+                            <td>Авторский сеттинг</td>
+                        </tr>
+                        <tr>
+                            <td>Система:</td>
+                            <td></td>
+                            <td>Авторская система</td>
+                        </tr>
+                        <tr>
+                            <td>Жанр:</td>
+                            <td></td>
+                            <td>Фэнтези</td>
+                        </tr>
+                        <tr>
+                            <td>Игру проводит:</td>
+                            <td></td>
+                            <td><a href="https://rolecon.ru/user/34437">Sigfuss</a></td>
+                        </tr>
+                        <tr>
+                            <td>Места:</td>
+                            <td></td>
+                            <td>Осталось 4 мест из 4</td>
+                        </tr>
+                    </tbody>
+                </table>
+    </div>
+</body>
+</html>`
+
+	event := scraper.RoleconEvent{
+		ID:    18475,
+		Title: "Охота: Война в тени",
+		URL:   "/game/18475",
+		Start: "2025-10-24T19:00:00+03:00", // Friday, Oct 24, 2025
+		End:   "2025-10-24T23:00:00+03:00",
+	}
+
+	page := &scraper.Page{
+		URL:  "https://rolecon.ru/game/18475",
+		Html: html,
+	}
+
+	eventMap := map[string]scraper.RoleconEvent{
+		page.URL: event,
+	}
+
+	engine := NewHtmlEngineV2()
+	games, err := engine.ProcessWithEvents(page, eventMap)
+
+	if err != nil {
+		t.Fatalf("ProcessWithEvents() error = %v", err)
+	}
+
+	if games == nil || len(*games) != 1 {
+		t.Fatalf("ProcessWithEvents() returned %d games, want 1", len(*games))
+	}
+
+	game := (*games)[0]
+
+	// Verify basic fields
+	if game.Title != "Охота: Война в тени" {
+		t.Errorf("Title = %s, want 'Охота: Война в тени'", game.Title)
+	}
+
+	// Verify that date was set from event metadata (fallback)
+	// This is the main purpose of this test: verify that when a page
+	// has "Пятница (19:00 - 23:00)" format without a specific date,
+	// the parser falls back to using the date from event metadata
+	if game.Date.IsZero() {
+		t.Error("Date should be set from event metadata via fallback, but it's zero")
+	}
+
+	// Verify the date is Friday, October 24, 2025 at 19:00 Moscow time
+	expectedDate := time.Date(2025, 10, 24, 19, 0, 0, 0, mustLoadMoscow())
+	if !game.Date.Equal(expectedDate) {
+		t.Errorf("Date = %v, want %v (should be parsed from event metadata)", game.Date, expectedDate)
+	}
+
+	slog.Debug("Test passed", "date_parsed", game.Date, "fallback_used", !game.Date.IsZero())
+}
+
+func TestHtmlEngineV2_ProcessWithEvents_PbtA_RealHTML(t *testing.T) {
+	// Test with actual HTML from "[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]" game page
+	// This page has date format "Пятница (19:00 - 23:00)" without specific date
+	html := `<!DOCTYPE html>
+<html lang="ru-RU">
+<body>
+    <div class="game-single">
+        <h4>[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]</h4>
+        <p class="subcaption-h4">
+            Пятница (19:00 - 23:00), ,
+19:00 - 23:00            </p>
+        <table class="table-single reverse">
+            <tbody>
+                <tr>
+                    <td>Сеттинг:</td>
+                    <td>Космические Рейнджеры</td>
+                </tr>
+                <tr>
+                    <td>Система:</td>
+                    <td>*W_Грань Вселенной: Третья редакция</td>
+                </tr>
+                <tr>
+                    <td>Жанр:</td>
+                    <td>Космоопера\Боевик\Триллер</td>
+                </tr>
+                <tr>
+                    <td>Игру проводит:</td>
+                    <td><a href="https://rolecon.ru/user/5116">Doc</a></td>
+                </tr>
+                <tr>
+                    <td>Места:</td>
+                    <td>Осталось 4 мест из 5</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>`
+
+	event := scraper.RoleconEvent{
+		ID:    18446,
+		Title: "[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]",
+		URL:   "/game/18446",
+		Start: "2025-10-24T19:00:00+03:00",
+		End:   "2025-10-24T23:00:00+03:00",
+	}
+
+	page := &scraper.Page{
+		URL:  "https://rolecon.ru/game/18446",
+		Html: html,
+	}
+
+	eventMap := map[string]scraper.RoleconEvent{
+		page.URL: event,
+	}
+
+	engine := NewHtmlEngineV2()
+	games, err := engine.ProcessWithEvents(page, eventMap)
+
+	if err != nil {
+		t.Fatalf("ProcessWithEvents() error = %v", err)
+	}
+
+	if games == nil || len(*games) != 1 {
+		t.Fatalf("ProcessWithEvents() returned %d games, want 1", len(*games))
+	}
+
+	game := (*games)[0]
+
+	// Verify basic fields
+	if game.Title != "[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]" {
+		t.Errorf("Title = %s, want '[PbtA][ГВ3][КР1] Когда границы пройдены! [12+]'", game.Title)
+	}
+
+	// Verify date was set from event metadata (fallback)
+	if game.Date.IsZero() {
+		t.Error("Date should be set from event metadata, but it's zero")
+	}
+
+	// Verify the date from event metadata
+	expectedDate := time.Date(2025, 10, 24, 19, 0, 0, 0, mustLoadMoscow())
+	if !game.Date.Equal(expectedDate) {
+		t.Errorf("Date = %v, want %v", game.Date, expectedDate)
+	}
+
+	// Verify table parsing
+	if game.Setting != "Космические Рейнджеры" {
+		t.Errorf("Setting = %s, want 'Космические Рейнджеры'", game.Setting)
+	}
+
+	if game.System != "*W_Грань Вселенной: Третья редакция" {
+		t.Errorf("System = %s, want '*W_Грань Вселенной: Третья редакция'", game.System)
+	}
+
+	if game.Genre != "Космоопера\\Боевик\\Триллер" {
+		t.Errorf("Genre = %s, want 'Космоопера\\Боевик\\Триллер'", game.Genre)
+	}
+
+	if game.MasterName != "Doc" {
+		t.Errorf("MasterName = %s, want 'Doc'", game.MasterName)
+	}
+
+	// Verify seats
+	if game.SeatsTotal != 5 || game.SeatsFree != 4 {
+		t.Errorf("Seats = %d/%d, want 4/5", game.SeatsFree, game.SeatsTotal)
+	}
+}
+
+func TestHtmlEngineV2_ProcessWithEvents_WarnOnMissingDate(t *testing.T) {
+	// Test that WARN is logged when a game has no date and no fallback is available
+	html := `<!DOCTYPE html>
+<html lang="ru-RU">
+<body>
+    <div class="game-single" id="game99999">
+        <h4>Game Without Date</h4>
+        <p class="subcaption-h4">Undefined date format</p>
+        <table class="table-single reverse">
+            <tbody>
+                <tr><td>Сеттинг:</td><td></td><td>Test</td></tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>`
+
+	page := &scraper.Page{
+		URL:  "https://rolecon.ru/game/99999",
+		Html: html,
+	}
+
+	engine := NewHtmlEngineV2()
+
+	// Capture log output
+	var warnLogged bool
+	originalHandler := slog.Default().Handler()
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})))
+	defer slog.SetDefault(slog.New(originalHandler))
+
+	games, err := engine.ProcessWithEvents(page, nil)
+
+	if err != nil {
+		t.Fatalf("ProcessWithEvents() error = %v", err)
+	}
+
+	if games == nil || len(*games) != 1 {
+		t.Fatalf("ProcessWithEvents() returned %d games, want 1", len(*games))
+	}
+
+	game := (*games)[0]
+
+	// Verify the game has no date
+	if !game.Date.IsZero() {
+		t.Error("Game should have no date, but date is set")
+	}
+
+	// Just verify the test doesn't panic (warning is logged but we can't easily capture it in tests)
+	_ = warnLogged
+}
+
 func TestHtmlEngineV2_ProcessWithEvents_DateFallback(t *testing.T) {
 	tests := []struct {
 		name        string

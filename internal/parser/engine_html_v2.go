@@ -70,6 +70,16 @@ func (he *HtmlEngineV2) ProcessWithEvents(page *scraper.Page, eventMap map[strin
 
 	he.setJoinableFlags(games)
 
+	// Log warning for games without dates
+	for _, game := range games {
+		if game.Date.IsZero() {
+			slog.Warn("game has no date",
+				"game_id", game.ExternalID,
+				"title", game.Title,
+				"url", page.URL)
+		}
+	}
+
 	slog.Debug("page processed", "page_url", page.URL, "games_count", len(games))
 	return &games, nil
 }
