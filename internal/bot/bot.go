@@ -1,12 +1,13 @@
 package bot
 
 import (
-	"github.com/kettari/location-bot/internal/config"
-	"github.com/kettari/location-bot/internal/entity"
-	tele "gopkg.in/telebot.v4"
 	"log/slog"
 	"strconv"
 	"strings"
+
+	"github.com/kettari/location-bot/internal/config"
+	"github.com/kettari/location-bot/internal/entity"
+	tele "gopkg.in/telebot.v4"
 )
 
 type Bot struct {
@@ -53,6 +54,17 @@ func prepareDestination(recipients string) []Recipient {
 
 // Send notification to all prepared recipients
 func (b *Bot) Send(notification []string) (err error) {
+	conf := config.GetConfig()
+	if conf.DryRun {
+		slog.Info("DRY RUN MODE: skipping Telegram message sending")
+		for _, dest := range b.destination {
+			for _, txt := range notification {
+				slog.Debug("DRY RUN: would send notification", "chat_id", dest.User.ID, "thread_id", dest.ThreadID, "preview", txt[:min(100, len(txt))])
+			}
+		}
+		return nil
+	}
+
 	for _, dest := range b.destination {
 		for _, txt := range notification {
 			if _, err = b.bot.Send(&dest.User, txt, &tele.SendOptions{
@@ -64,4 +76,11 @@ func (b *Bot) Send(notification []string) (err error) {
 		slog.Debug("notification sent", "chat_id", dest.User.ID, "thread_id", dest.ThreadID, "parts_count", len(notification))
 	}
 	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

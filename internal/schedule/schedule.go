@@ -3,14 +3,15 @@ package schedule
 import (
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
 	"github.com/kettari/location-bot/internal/bot"
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/entity"
 	"github.com/kettari/location-bot/internal/storage"
 	"gorm.io/gorm"
-	"log/slog"
-	"strings"
-	"time"
 )
 
 type Schedule struct {
@@ -133,6 +134,8 @@ func (s *Schedule) CheckAbsentGames() error {
 		return errors.New("manager not initialized")
 	}
 
+	conf := config.GetConfig()
+
 	// Check for absent games
 	var storedGames []entity.Game
 	if result := s.manager.DB().
@@ -147,15 +150,19 @@ func (s *Schedule) CheckAbsentGames() error {
 		return result.Error
 	}
 	// Register observers
-	conf := config.GetConfig()
 	b, err := bot.CreateBot(conf.NotificationChatID)
 	if err != nil {
 		slog.Error("unable to create bot processor object", "error", err)
 		return err
 	}
-	for k, _ := range storedGames {
+	for k := range storedGames {
 		storedGames[k].Register(entity.CancelledGameObserver(b))
 	}
+
+	if conf.DryRun {
+		slog.Info("DRY RUN MODE: skipping database updates for absent games")
+	}
+
 	for _, sg := range storedGames {
 		found := false
 		for _, jg := range s.Games {
@@ -167,8 +174,10 @@ func (s *Schedule) CheckAbsentGames() error {
 		if !found {
 			slog.Warn("stored game is absent", "game_id", sg.ExternalID)
 			sg.Joinable = false
-			if err := s.manager.DB().Save(&sg).Error; err != nil {
-				return err
+			if !conf.DryRun {
+				if err := s.manager.DB().Save(&sg).Error; err != nil {
+					return err
+				}
 			}
 			slog.Debug("cancelled game internals", "game", sg)
 			if sg.WasJoinable() {
@@ -183,6 +192,27 @@ func (s *Schedule) CheckAbsentGames() error {
 func (s *Schedule) SaveGames() error {
 	if s.manager == nil {
 		return errors.New("manager not initialized")
+	}
+
+	conf := config.GetConfig()
+	if conf.DryRun {
+		slog.Info("DRY RUN MODE: skipping database saves")
+		// Still trigger observers for logging, but they won't send messages in DryRun
+		for _, game := range s.Games {
+			storedGame := game
+			result := s.manager.DB().Where(entity.Game{ExternalID: game.ExternalID}).First(&storedGame)
+			if result.Error != nil && !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+				return result.Error
+			}
+			freshGame := errors.Is(result.Error, gorm.ErrRecordNotFound)
+
+			if freshGame && game.NewJoinable() {
+				game.OnNew()
+			} else if game.FreeSeatsAdded(&storedGame) || game.BecomeJoinable(&storedGame) {
+				game.OnBecomeJoinable()
+			}
+		}
+		return nil
 	}
 
 	// Save collection

@@ -2,6 +2,10 @@ package console
 
 import (
 	"fmt"
+	"log/slog"
+	"sync"
+	"time"
+
 	"github.com/kettari/location-bot/internal/bot"
 	"github.com/kettari/location-bot/internal/config"
 	"github.com/kettari/location-bot/internal/entity"
@@ -9,9 +13,6 @@ import (
 	"github.com/kettari/location-bot/internal/schedule"
 	"github.com/kettari/location-bot/internal/scraper"
 	"github.com/kettari/location-bot/internal/storage"
-	"log/slog"
-	"sync"
-	"time"
 )
 
 const (
@@ -69,11 +70,17 @@ func (cmd *ScheduleFetchCommand) Run() error {
 
 	// Parsing pages
 	slog.Debug("parsing pages")
-	manager := storage.NewManager(conf.DbConnectionString)
-	if err = manager.Connect(); err != nil {
-		return err
+	var sch *schedule.Schedule
+	if !conf.DryRun {
+		manager := storage.NewManager(conf.DbConnectionString)
+		if err = manager.Connect(); err != nil {
+			return err
+		}
+		sch = schedule.NewSchedule(manager)
+	} else {
+		slog.Info("DRY RUN MODE: skipping database connection")
+		sch = schedule.NewSchedule(nil)
 	}
-	sch := schedule.NewSchedule(manager)
 	prsr := parser.NewParser(parser.NewHtmlEngine())
 	err = prsr.Parse(&result.Pages, sch)
 	if err != nil {

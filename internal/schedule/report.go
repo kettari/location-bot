@@ -1,13 +1,10 @@
 package schedule
 
 import (
-	"github.com/kettari/location-bot/internal/bot"
 	"log/slog"
-)
 
-type Report struct {
-	schedule *Schedule
-}
+	"github.com/kettari/location-bot/internal/bot"
+)
 
 // ExecuteFullReport and send notification to recipients
 //

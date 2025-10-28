@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	Debug              bool
+	DryRun             bool
 	BotToken           string
 	BotUsername        string
 	OpenAIApiKey       string
@@ -30,6 +31,12 @@ func GetConfig() *Config {
 	}
 	if config.Debug {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+
+	// Dry run mode
+	dryRun := os.Getenv("BOT_DRY_RUN")
+	if strings.ToLower(dryRun) == "true" || dryRun == "1" {
+		config.DryRun = true
 	}
 
 	// Bot token
@@ -69,6 +76,7 @@ func GetConfig() *Config {
 
 	slog.Debug("configuration parameters",
 		"BOT_DEBUG", config.Debug,
+		"BOT_DRY_RUN", config.DryRun,
 		"BOT_TELEGRAM_TOKEN", config.BotToken,
 		"BOT_TELEGRAM_NAME", config.BotUsername,
 		"BOT_OPENAI_API_KEY", config.OpenAIApiKey,
