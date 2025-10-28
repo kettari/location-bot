@@ -7,13 +7,12 @@ import (
 )
 
 type Config struct {
-	Debug               bool
-	BotToken            string
-	BotUsername         string
-	OpenAIApiKey        string
-	OpenAILanguageModel string
-	DbConnectionString  string
-	NotificationChatID  string
+	Debug              bool
+	BotToken           string
+	BotUsername        string
+	OpenAIApiKey       string
+	DbConnectionString string
+	NotificationChatID string
 }
 
 var config *Config
@@ -61,13 +60,6 @@ func GetConfig() *Config {
 		os.Exit(1)
 	}
 
-	// Bot LLM
-	config.OpenAILanguageModel = os.Getenv("BOT_OPENAI_LANGUAGE_MODEL")
-	if len(config.OpenAILanguageModel) == 0 {
-		slog.Error("bot language model not found in the environment (BOT_OPENAI_LANGUAGE_MODEL)")
-		os.Exit(1)
-	}
-
 	// Bot chats to notify
 	config.NotificationChatID = os.Getenv("BOT_NOTIFICATION_CHAT_ID")
 	if len(config.NotificationChatID) == 0 {
@@ -81,7 +73,6 @@ func GetConfig() *Config {
 		"BOT_TELEGRAM_NAME", config.BotUsername,
 		"BOT_OPENAI_API_KEY", config.OpenAIApiKey,
 		"BOT_DB_STRING", config.DbConnectionString,
-		"BOT_OPENAI_LANGUAGE_MODEL", config.OpenAILanguageModel,
 		"BOT_NOTIFICATION_CHAT_ID", config.NotificationChatID)
 
 	return config

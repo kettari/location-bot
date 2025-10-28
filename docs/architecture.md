@@ -25,7 +25,6 @@ Location Bot - это система мониторинга и уведомле�
 - `BOT_TELEGRAM_TOKEN` - токен Telegram бота
 - `BOT_TELEGRAM_NAME` - имя бота
 - `BOT_OPENAI_API_KEY` - API ключ OpenAI
-- `BOT_OPENAI_LANGUAGE_MODEL` - модель языка OpenAI
 - `BOT_DB_STRING` - строка подключения к БД
 - `BOT_NOTIFICATION_CHAT_ID` - идентификаторы чатов для уведомлений
 
