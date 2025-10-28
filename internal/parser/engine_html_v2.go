@@ -28,6 +28,18 @@ var monthsMapV2 = map[string]int{
 	"октября":  10,
 	"ноября":   11,
 	"декабря":  12,
+	"январь":   1, // именительный падеж
+	"февраль":  2,
+	"март":     3,
+	"апрель":   4,
+	"май":      5,
+	"июнь":     6,
+	"июль":     7,
+	"август":   8,
+	"сентябрь": 9,
+	"октябрь":  10,
+	"ноябрь":   11,
+	"декабрь":  12,
 }
 
 func NewHtmlEngineV2() *HtmlEngineV2 {
@@ -231,31 +243,56 @@ func (he *HtmlEngineV2) extractTitleV2(n *html.Node, game *entity.Game, baseURL 
 }
 
 func (he *HtmlEngineV2) extractSingleEventDateV2(n *html.Node) time.Time {
+	if n == nil {
+		return time.Time{}
+	}
+
 	if n.Type == html.TextNode && len(strings.Trim(n.Data, " \n\t\r")) > 0 {
 		eventDate := strings.Trim(n.Data, " \n\t\r")
-		// Parse formats like "30 октября 2025, 19:00 - 23:00"
-		r := regexp.MustCompile(`(\d{1,2})\s+([\p{Cyrillic}]+)\s+(\d{4}),\s*(\d{2}):(\d{2})`)
-		matches := r.FindStringSubmatch(eventDate)
-		if len(matches) >= 6 {
-			moscow, err := time.LoadLocation("Europe/Moscow")
-			if err != nil {
-				slog.Warn("failed to load Moscow timezone", "err", err)
-				return time.Time{}
-			}
 
-			year, _ := strconv.Atoi(matches[3])
-			day, _ := strconv.Atoi(matches[1])
-			hour, _ := strconv.Atoi(matches[4])
-			minute, _ := strconv.Atoi(matches[5])
+		// Remove possible leading/trailing non-word characters
+		eventDate = strings.Trim(eventDate, " \n\t\r")
 
-			if month, ok := monthsMapV2[matches[2]]; ok {
-				return time.Date(year, time.Month(month), day, hour, minute, 0, 0, moscow)
+		// Try multiple regex patterns
+		patterns := []string{
+			`(\d{1,2})\s+([\p{Cyrillic}]+)\s+(\d{4}),\s*(\d{2}):(\d{2})`,                       // "30 октября 2025, 19:00"
+			`(\d{1,2})\s+([\p{Cyrillic}]+)\s+(\d{4}),\s*(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})`, // with end time
+		}
+
+		for _, pattern := range patterns {
+			r := regexp.MustCompile(pattern)
+			matches := r.FindStringSubmatch(eventDate)
+			if len(matches) >= 6 {
+				moscow, err := time.LoadLocation("Europe/Moscow")
+				if err != nil {
+					slog.Warn("failed to load Moscow timezone", "err", err)
+					continue
+				}
+
+				year, _ := strconv.Atoi(matches[3])
+				day, _ := strconv.Atoi(matches[1])
+				hour, _ := strconv.Atoi(matches[4])
+				minute, _ := strconv.Atoi(matches[5])
+
+				if month, ok := monthsMapV2[matches[2]]; ok {
+					slog.Debug("parsed single event date", "date", eventDate, "parsed", time.Date(year, time.Month(month), day, hour, minute, 0, 0, moscow))
+					return time.Date(year, time.Month(month), day, hour, minute, 0, 0, moscow)
+				} else {
+					slog.Warn("month not found in map", "month", matches[2], "full_date", eventDate)
+				}
 			}
 		}
+
+		slog.Debug("failed to parse date", "raw_date", eventDate)
 	}
+
 	if n.NextSibling != nil {
 		return he.extractSingleEventDateV2(n.NextSibling)
 	}
+	if n.FirstChild != nil {
+		return he.extractSingleEventDateV2(n.FirstChild)
+	}
+
 	return time.Time{}
 }
 

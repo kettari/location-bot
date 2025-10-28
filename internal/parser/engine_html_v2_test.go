@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -568,6 +569,89 @@ func TestNewHtmlEngineV2(t *testing.T) {
 	if engine == nil {
 		t.Fatal("NewHtmlEngineV2() returned nil")
 	}
+}
+
+func TestHtmlEngineV2_ExtractSingleEventDate(t *testing.T) {
+	tests := []struct {
+		name     string
+		htmlDate string
+		expected time.Time
+	}{
+		{
+			name:     "genitive case month with comma",
+			htmlDate: "30 октября 2025, 19:00",
+			expected: time.Date(2025, time.October, 30, 19, 0, 0, 0, mustLoadMoscow()),
+		},
+		{
+			name:     "genitive case month with time range",
+			htmlDate: "15 апреля 2025, 10:00 - 14:00",
+			expected: time.Date(2025, time.April, 15, 10, 0, 0, 0, mustLoadMoscow()),
+		},
+		{
+			name:     "nominative case month",
+			htmlDate: "1 январь 2025, 20:00",
+			expected: time.Date(2025, time.January, 1, 20, 0, 0, 0, mustLoadMoscow()),
+		},
+		{
+			name:     "february with extra spaces",
+			htmlDate: "12  февраля  2025,  18:00",
+			expected: time.Date(2025, time.February, 12, 18, 0, 0, 0, mustLoadMoscow()),
+		},
+		{
+			name:     "december genitive",
+			htmlDate: "31 декабря 2025, 23:59",
+			expected: time.Date(2025, time.December, 31, 23, 59, 0, 0, mustLoadMoscow()),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			html := fmt.Sprintf(`
+			<html>
+			<body>
+				<div class="game-single" id="test123">
+					<h4>Test Game</h4>
+					<p class="subcaption-h4">%s</p>
+					<table class="table-single">
+						<tbody>
+							<tr><td>Сеттинг:</td><td></td><td>Fantasy</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</body>
+			</html>`, tt.htmlDate)
+
+			page := &scraper.Page{
+				URL:  "https://rolecon.ru/game/123",
+				Html: html,
+			}
+
+			engine := NewHtmlEngineV2()
+			games, err := engine.Process(page)
+
+			if err != nil {
+				t.Fatalf("Process() error = %v", err)
+			}
+
+			if games == nil || len(*games) != 1 {
+				t.Fatalf("Process() returned %d games, want 1", len(*games))
+			}
+
+			game := (*games)[0]
+
+			if !game.Date.Equal(tt.expected) && !tt.expected.IsZero() {
+				t.Errorf("Date = %v, want %v", game.Date, tt.expected)
+			}
+		})
+	}
+}
+
+func mustLoadMoscow() *time.Location {
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		panic(err)
+	}
+	return moscow
 }
 
 // Test all HTML example files in the webpage-examples directory
