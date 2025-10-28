@@ -27,8 +27,15 @@ func (s *Schedule) Add(games ...entity.Game) {
 	s.Games = append(s.Games, games...)
 }
 
+// Format returns a formatted message list for games.
+// If no games are available, returns ["Открытых игр для записи на сайте нет."]
 func (s *Schedule) Format() ([]string, error) {
 	var result []string
+
+	// If no games, return specific message
+	if len(s.Games) == 0 {
+		return []string{"Открытых игр для записи на сайте нет."}, nil
+	}
 
 	dow := map[string]string{
 		"Mon": "ПОНЕДЕЛЬНИК",
